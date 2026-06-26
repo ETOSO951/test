@@ -1,4 +1,4 @@
-// 最小限のサービスワーカーの記述
+// service-worker.js
 self.addEventListener('fetch', (event) => {
-  // ここにキャッシュの処理などを書けますが、空でもPWAとしては認識されます
+    // 空の状態でもPWAインストール要件を満たします
 });
