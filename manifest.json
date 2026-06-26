@@ -1,6 +1,6 @@
 {
-  "short_name": "マイアプリ",
-  "name": "マイPWAアプリケーション",
+  "short_name": "StickAbout",
+  "name": "スティック・アバウト - REAL PHYSICS",
   "icons": [
     {
       "src": "icon-192.png",
@@ -13,8 +13,8 @@
       "sizes": "512x512"
     }
   ],
-  "start_url": "./index.html",,
-  "background_color": "#ffffff",
+  "start_url": "./index.html",
+  "background_color": "#1a1c23",
   "display": "standalone",
-  "theme_color": "#000000"
+  "theme_color": "#1a1c23"
 }
