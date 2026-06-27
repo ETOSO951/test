@@ -2,491 +2,214 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>スティック・アバウト - REAL PHYSICS</title>
-    
-    <link rel="manifest" href="manifest.json">
-    <meta name="theme-color" content="#1a1c23">
-    <link rel="apple-touch-icon" href="icon-192.png">
-
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>スマホ傾きボールゲーム</title>
     <style>
-        * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; -webkit-user-select: none; }
-        body { background-color: #1a1c23; color: #fff; font-family: sans-serif; display: flex; flex-direction: column; justify-content: center; align-items: center; height: 100vh; overflow: hidden; }
-        canvas { background-color: #2c3e50; max-width: 100%; max-height: 80vh; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
+        body {
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            background-color: #222;
+            font-family: sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+        }
+        #gameCanvas {
+            background-color: #eed9b3;
+            box-shadow: 0 0 20px rgba(0,0,0,0.5);
+        }
+        #startMenu {
+            position: absolute;
+            text-align: center;
+            color: white;
+            z-index: 10;
+        }
+        button {
+            padding: 15px 30px;
+            font-size: 18px;
+            font-weight: bold;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            box-shadow: 0 4px #initial;
+        }
+        button:active {
+            transform: translateY(2px);
+        }
     </style>
 </head>
 <body>
 
-<canvas id="stickCanvas"></canvas>
+    <div id="startMenu">
+        <h2>ジャイロ ボールゲーム</h2>
+        <p>スマホを傾けてボールをゴールに導こう！</p>
+        <button id="startButton">ゲーム開始（センサーを許可）</button>
+    </div>
 
-<script>
-const canvas = document.getElementById("stickCanvas");
-const ctx = canvas.getContext("2d");
+    <canvas id="gameCanvas"></canvas>
 
-canvas.width = 360;
-canvas.height = 500;
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const startMenu = document.getElementById('startMenu');
+        const startButton = document.getElementById('startButton');
 
-let score = 0;
-let highScore = 0; 
-let lives = 3; 
-let gameOver = false;
-let phase = "title"; // title, ready, growing, fall, walk, overwhelm_shock, gameover_fall, sun_destruction, gameover_display
+        // 画面サイズに合わせてキャンバスサイズを設定
+        const width = Math.min(window.innerWidth, 500);
+        const height = Math.min(window.innerHeight, 700);
+        canvas.width = width;
+        canvas.height = height;
 
-if (localStorage.getItem("StickAbout_HighScore")) {
-    highScore = parseInt(localStorage.getItem("StickAbout_HighScore"), 10);
-}
+        // ボールの初期ステータス
+        const ball = {
+            x: width / 2,
+            y: height - 100,
+            radius: 15,
+            vx: 0,
+            vy: 0,
+            speedMultiplier: 0.15 // 傾きに対する感度
+        };
 
-let stickLength = 0;
-let stickAngle = 0; 
-let maxStickAngle = Math.PI / 2; 
+        // ゴールの初期ステータス
+        const goal = {
+            x: width / 2,
+            y: 80,
+            radius: 25
+        };
 
-let currentPlat = { x: 20, y: 350, baseX: 20, baseY: 350, width: 60 };
-let nextPlat = { x: 150, y: 350, baseX: 150, baseY: 350, width: 50 };
+        // 傾きデータの保持
+        let tiltX = 0;
+        let tiltY = 0;
+        let isPlaying = false;
 
-// 演出用変数
-let platformFragments = [];
-let screenShake = 0;
-let shockTimer = 0;
-let growTimer = 0; 
-let cameraX = 0; 
-let cameraY = 0; 
-let sunY = -2500; 
-let sunExploded = false;
-let sunParticleTimer = 0;
-let sunGameOverTimer = 0; 
-let sunArrivedTimer = 0; 
-let slowStickLength = 0; 
-
-// 星データ
-let stars = [];
-function initStars() {
-    stars = [];
-    for (let i = 0; i < 120; i++) {
-        stars.push({
-            x: Math.random() * canvas.width * 3 - canvas.width, 
-            y: Math.random() * -5000 - 200, 
-            size: Math.random() * 2 + 0.5,
-            alpha: Math.random() * 0.5 + 0.5
+        // 開始ボタンのクリックイベント
+        startButton.addEventListener('click', () => {
+            requestDeviceOrientationPermission();
         });
-    }
-}
 
-let playerX = currentPlat.x + currentPlat.width - 15;
-let playerY = currentPlat.y - 25;
-let targetPlayerX = playerX;
-let isSuccess = false; 
-
-let stageNoticeTimer = 0;
-let currentStageNum = 1;
-let noticeMessage = "";
-let moveTimer = 0; 
-
-let fallSpeedY = 0;
-let fallSpeedX = 0;
-
-function getStageConfig() {
-    if (score >= 80) {
-        return { num: 12, bgColors: ["#000000", "#1a0033"], stickSpeed: 9.0, minGap: 90, maxGap: 160, minWidth: 12, maxWidth: 22, moveSpeedX: 2.2, moveSpeedY: 1.8, name: "STAGE 12: THE VOID" };
-    } else if (score >= 68) {
-        return { num: 11, bgColors: ["#4a004a", "#000000"], stickSpeed: 8.5, minGap: 85, maxGap: 155, minWidth: 15, maxWidth: 25, moveSpeedX: 2.0, moveSpeedY: 1.5, name: "STAGE 11: SINGULARITY" };
-    } else if (score >= 57) {
-        return { num: 10, bgColors: ["#0d47a1", "#00a152"], stickSpeed: 8.0, minGap: 80, maxGap: 150, minWidth: 18, maxWidth: 28, moveSpeedX: 1.8, moveSpeedY: 1.2, name: "STAGE 10: CYBER SPACE" };
-    } else if (score >= 47) {
-        return { num: 9, bgColors: ["#311b92", "#000000"], stickSpeed: 7.5, minGap: 80, maxGap: 145, minWidth: 20, maxWidth: 30, moveSpeedX: 1.5, moveSpeedY: 1.0, name: "STAGE 9: ECLIPSE" };
-    } else if (score >= 38) {
-        return { num: 8, bgColors: ["#4a0000", "#111111"], stickSpeed: 7.0, minGap: 75, maxGap: 140, minWidth: 22, maxWidth: 32, moveSpeedX: 1.4, moveSpeedY: 0.8, name: "STAGE 8: RIFT" };
-    } else if (score >= 30) {
-        return { num: 7, bgColors: ["#ff4500", "#4b0082"], stickSpeed: 6.5, minGap: 70, maxGap: 135, minWidth: 24, maxWidth: 35, moveSpeedX: 1.2, moveSpeedY: 0.0, name: "STAGE 7: VOLCANO" };
-    } else if (score >= 23) {
-        return { num: 6, bgColors: ["#000080", "#008080"], stickSpeed: 5.8, minGap: 65, maxGap: 130, minWidth: 26, maxWidth: 38, moveSpeedX: 0.0, moveSpeedY: 1.2, name: "STAGE 6: DEEP SEA" };
-    } else if (score >= 17) {
-        return { num: 5, bgColors: ["#131222", "#2a2a81"], stickSpeed: 5.2, minGap: 60, maxGap: 125, minWidth: 28, maxWidth: 42, moveSpeedX: 0.8, moveSpeedY: 0.5, name: "STAGE 5: GALAXY" };
-    } else if (score >= 12) {
-        return { num: 4, bgColors: ["#e0f7fa", "#80deea"], stickSpeed: 4.6, minGap: 55, maxGap: 120, minWidth: 30, maxWidth: 46, moveSpeedX: 0.6, moveSpeedY: 0.0, name: "STAGE 4: ICEBERG" };
-    } else if (score >= 7) {
-        return { num: 3, bgColors: ["#caa472", "#ffd59a"], stickSpeed: 4.1, minGap: 50, maxGap: 115, minWidth: 32, maxWidth: 50, moveSpeedX: 0.0, moveSpeedY: 0.7, name: "STAGE 3: DESERT" };
-    } else if (score >= 3) {
-        return { num: 2, bgColors: ["#4b0082", "#ff007f"], stickSpeed: 3.8, minGap: 45, maxGap: 110, minWidth: 35, maxWidth: 55, moveSpeedX: 0.0, moveSpeedY: 0.0, name: "STAGE 2: NEON" };
-    } else {
-        return { num: 1, bgColors: ["#2c3e50", "#fd746c"], stickSpeed: 3.5, minGap: 40, maxGap: 100, minWidth: 35, maxWidth: 60, moveSpeedX: 0.0, moveSpeedY: 0.0, name: "STAGE 1: TWILIGHT" };
-    }
-}
-
-function generateNextPlatform() {
-    currentPlat = { x: currentPlat.baseX, y: currentPlat.y, baseX: currentPlat.baseX, baseY: currentPlat.y, width: currentPlat.width };
-    const config = getStageConfig();
-    
-    let gap = Math.floor(Math.random() * (config.maxGap - config.minGap)) + config.minGap;
-    let width = Math.floor(Math.random() * (config.maxWidth - config.minWidth)) + config.minWidth;
-    
-    let nextBaseX = currentPlat.baseX + currentPlat.width + gap;
-    if(nextBaseX + width > canvas.width) {
-        nextBaseX = canvas.width - width - 10;
-    }
-
-    nextPlat = { x: nextBaseX, y: 350, baseX: nextBaseX, baseY: 350, width: width, isDestroyed: false };
-    platformFragments = [];
-}
-
-function triggerPlatformBreak(plat) {
-    const rows = 5; const cols = 5;
-    const w = plat.width / cols; const h = (canvas.height - plat.y) / rows;
-    for (let r = 0; r < rows; r++) {
-        for (let c = 0; c < cols; c++) {
-            platformFragments.push({
-                x: plat.x + c * w, y: plat.y + r * h, w: w, h: h,
-                vx: (Math.random() - 0.5) * 6, vy: (Math.random() - 0.5) * 6 - 2, gravity: 0.4
-            });
-        }
-    }
-    plat.isDestroyed = true;
-}
-
-function resetGame() {
-    score = 0; lives = 3; gameOver = false; stickLength = 0; stickAngle = 0; maxStickAngle = Math.PI / 2;
-    currentStageNum = 1; stageNoticeTimer = 0; moveTimer = 0; screenShake = 0; growTimer = 0; cameraX = 0; cameraY = 0; sunExploded = false; sunParticleTimer = 0; sunGameOverTimer = 0;
-    sunArrivedTimer = 0; slowStickLength = 0;
-    sunY = -2500; 
-    currentPlat = { x: 20, y: 350, baseX: 20, baseY: 350, width: 60 };
-    playerX = currentPlat.x + currentPlat.width - 15;
-    playerY = currentPlat.y - 25;
-    generateNextPlatform();
-    initStars();
-    phase = "ready";
-}
-
-function checkAndSaveHighScore() {
-    if (score > highScore) {
-        highScore = score;
-        localStorage.setItem("StickAbout_HighScore", highScore.toString());
-    }
-}
-
-function handleInputStart(e) {
-    e.preventDefault();
-    if (phase === "title") { phase = "ready"; return; }
-    if (gameOver || phase === "gameover_display") { resetGame(); return; } 
-    if (phase === "ready") { phase = "growing"; maxStickAngle = Math.PI / 2; growTimer = 0; cameraX = 0; cameraY = 0; sunArrivedTimer = 0; slowStickLength = 0; }
-}
-
-function handleInputEnd() {
-    if (phase === "growing") { phase = "fall"; }
-}
-
-document.addEventListener("touchstart", handleInputStart, { passive: false });
-document.addEventListener("touchend", handleInputEnd, { passive: true });
-document.addEventListener("mousedown", handleInputStart);
-document.addEventListener("mouseup", handleInputEnd);
-
-function update() {
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    const config = getStageConfig();
-
-    let shakeX = (Math.random() - 0.5) * screenShake;
-    let shakeY = (Math.random() - 0.5) * screenShake;
-    if (screenShake > 0) screenShake *= 0.9;
-
-    ctx.save();
-    ctx.translate(shakeX - cameraX, shakeY + cameraY); 
-
-    if (config.num !== currentStageNum) {
-        currentStageNum = config.num;
-        lives = Math.min(3, lives + 1);
-        noticeMessage = (lives === 3) ? "MAX LIFE!" : "LIFE RECOVERED (+1)";
-        stageNoticeTimer = 100; 
-    }
-
-    if (phase === "ready" || phase === "growing" || phase === "fall") {
-        moveTimer += 0.04;
-        nextPlat.x = nextPlat.baseX + Math.sin(moveTimer) * (config.moveSpeedX * 20);
-        nextPlat.y = nextPlat.baseY + Math.cos(moveTimer) * (config.moveSpeedY * 20);
-    }
-
-    let grad = ctx.createLinearGradient(cameraX, -cameraY - 500, cameraX, canvas.height);
-    if (cameraY > 150) {
-        let spaceRatio = Math.min(1, (cameraY - 150) / 1500); 
-        let r = Math.floor(44 * (1 - spaceRatio));
-        let g = Math.floor(62 * (1 - spaceRatio));
-        let b = Math.floor(80 * (1 - spaceRatio));
-        grad.addColorStop(0, "#000000");
-        grad.addColorStop(1, `rgb(${r},${g},${b})`);
-    } else {
-        grad.addColorStop(0, config.bgColors[0]);
-        grad.addColorStop(1, config.bgColors[1]);
-    }
-    ctx.fillStyle = grad;
-    ctx.fillRect(cameraX - 200, -cameraY - 3500, canvas.width + 400, canvas.height + cameraY + 3700);
-
-    if (cameraY > 100) {
-        ctx.fillStyle = "#ffffff";
-        stars.forEach(s => {
-            ctx.globalAlpha = s.alpha * Math.min(1, (cameraY - 100) / 300); 
-            ctx.beginPath();
-            ctx.arc(s.x, s.y, s.size, 0, Math.PI * 2);
-            ctx.fill();
-        });
-        ctx.globalAlpha = 1.0; 
-    }
-
-    if (phase === "title") {
-        ctx.textAlign = "center"; ctx.fillStyle = "#ff3366"; ctx.font = "bold 36px sans-serif";
-        ctx.fillText("STICK ABOUT", canvas.width / 2, canvas.height / 3);
-        ctx.fillStyle = "#fff"; ctx.font = "14px sans-serif";
-        ctx.fillText("REAL PHYSICS EDITION", canvas.width / 2, canvas.height / 3 + 30);
-        
-        ctx.fillStyle = "#64ffda"; ctx.font = "bold 16px sans-serif";
-        ctx.fillText(`BEST SCORE: ${highScore}`, canvas.width / 2, canvas.height / 3 + 70);
-
-        if (Math.floor(Date.now() / 500) % 2 === 0) {
-            ctx.fillStyle = "#ffeb3b"; ctx.font = "bold 18px sans-serif";
-            ctx.fillText("TAP TO START", canvas.width / 2, canvas.height / 2 + 50);
-        }
-        ctx.restore(); requestAnimationFrame(update); return; 
-    }
-
-    let stickBaseX = currentPlat.x + currentPlat.width;
-    if (cameraY > 150 || phase === "sun_destruction" || phase === "gameover_display") {
-        let sunX = stickBaseX; 
-        if (!sunExploded) {
-            let sunGrad = ctx.createRadialGradient(sunX, sunY, 10, sunX, sunY, 75);
-            sunGrad.addColorStop(0, "#ffffff");
-            sunGrad.addColorStop(0.2, "#ffdd00");
-            sunGrad.addColorStop(0.5, "#ff5500");
-            sunGrad.addColorStop(1, "rgba(255,0,0,0)");
-            ctx.fillStyle = sunGrad;
-            ctx.beginPath(); ctx.arc(sunX, sunY, 75, 0, Math.PI*2); ctx.fill();
-        } else {
-            sunParticleTimer++;
-            for(let i=0; i<70; i++) {
-                ctx.fillStyle = `hsl(${Math.random()*40 + 5}, 100%, 60%)`;
-                let pRad = sunParticleTimer * (Math.random() * 14 + 7);
-                let pAngle = (i / 70) * Math.PI * 2;
-                ctx.fillRect(sunX + Math.cos(pAngle)*pRad, sunY + Math.sin(pAngle)*pRad, 8, 8);
+        // iOS用の権限要求とセンサーの開始
+        function requestDeviceOrientationPermission() {
+            if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
+                // iOS 13+ の処理
+                DeviceOrientationEvent.requestPermission()
+                    .then(permissionState => {
+                        if (permissionState === 'granted') {
+                            initGame();
+                        } else {
+                            alert('センサーの利用が拒否されました。設定を確認してください。');
+                        }
+                    })
+                    .catch(console.error);
+            } else {
+                // Android や 古いiOS、PC等の処理
+                initGame();
             }
         }
-    }
 
-    if (phase !== "title" && phase !== "gameover_display") {
-        ctx.fillStyle = (config.num === 4 && cameraY <= 150) ? "#111" : "#fff"; 
-        ctx.font = "bold 32px sans-serif"; ctx.textAlign = "center";
-        ctx.fillText(score, canvas.width / 2 + cameraX, 80 - cameraY);
-        ctx.font = "12px sans-serif"; ctx.fillStyle = (config.num === 4 && cameraY <= 150) ? "rgba(0,0,0,0.6)" : "rgba(255,255,255,0.7)";
-        ctx.fillText(config.name, canvas.width / 2 + cameraX, 110 - cameraY);
-        
-        ctx.textAlign = "left"; ctx.font = "bold 16px sans-serif"; ctx.fillStyle = (config.num === 4 && cameraY <= 150) ? "#111" : "#fff";
-        let lifeVisual = ""; 
-        for(let i=0; i<3; i++) { lifeVisual += (i < lives) ? "◼︎" : "◻︎"; }
-        ctx.fillText(`LIFE: ${lifeVisual}`, 20 + cameraX, 40 - cameraY);
-    }
-
-    ctx.fillStyle = (config.num === 5) ? "#222" : "#111"; 
-    ctx.fillRect(currentPlat.x, currentPlat.y, currentPlat.width, canvas.height - currentPlat.y + 500);
-    if (!nextPlat.isDestroyed) {
-        ctx.fillRect(nextPlat.x, nextPlat.y, nextPlat.width, canvas.height - nextPlat.y + 500);
-    }
-
-    platformFragments.forEach(f => {
-        f.vy += f.gravity; f.x += f.vx; f.y += f.vy;
-        ctx.fillRect(f.x, f.y, f.w, f.h);
-    });
-
-    if (phase === "growing") {
-        stickLength += config.stickSpeed; 
-        growTimer++;
-
-        if (growTimer > 600) { 
-            let targetCamY = -sunY + (canvas.height / 2); 
-            cameraY += (targetCamY - cameraY) * 0.05;
+        function initGame() {
+            startMenu.style.display = 'none';
+            isPlaying = true;
             
-            let targetCamX = stickBaseX - canvas.width / 2;
-            cameraX += (targetCamX - cameraX) * 0.1;
-
-            if (Math.abs(targetCamY - cameraY) < 20) {
-                sunArrivedTimer++;
-            }
-
-            if (sunArrivedTimer > 90) {
-                let requiredLength = currentPlat.y - sunY;
-                if (slowStickLength === 0) {
-                    slowStickLength = requiredLength - 400; 
-                }
-                
-                slowStickLength += 3.5; 
-                if (stickLength < slowStickLength) {
-                    stickLength = slowStickLength;
-                }
-
-                let stickTipY = currentPlat.y - stickLength;
-                if (stickTipY <= sunY + 10) {
-                    phase = "sun_destruction";
-                    sunExploded = true;
-                    screenShake = 40;
-                    sunGameOverTimer = 0;
-                    checkAndSaveHighScore();
-                }
-            }
-        }
-    }
-
-    if (phase === "sun_destruction") {
-        sunGameOverTimer++;
-        screenShake = Math.max(5, 40 - sunGameOverTimer * 0.18);
-        if (sunGameOverTimer >= 120) {
-            phase = "gameover_display";
-            gameOver = true; 
-        }
-    }
-
-    if (phase === "fall") {
-        stickAngle += 0.08; 
-        let currentStartX = currentPlat.x + currentPlat.width;
-        let currentStartY = currentPlat.y;
-
-        maxStickAngle = Math.PI / 2;
-
-        if (!nextPlat.isDestroyed) {
-            let heightDiff = nextPlat.y - currentStartY;
-
-            if (stickLength > Math.abs(heightDiff)) {
-                let collisionAngle = Math.PI / 2 + Math.asin(heightDiff / stickLength);
-                let colTipX = currentStartX + Math.sin(collisionAngle) * stickLength;
-                
-                if (colTipX >= nextPlat.x && colTipX <= nextPlat.x + nextPlat.width) {
-                    maxStickAngle = collisionAngle;
-                }
-            }
+            // 傾きセンサーのイベントリスナーを登録
+            window.addEventListener('deviceorientation', handleOrientation);
+            
+            // ゲームループ開始
+            requestAnimationFrame(update);
         }
 
-        if (stickAngle >= maxStickAngle) {
-            stickAngle = maxStickAngle;
-            let finalStartX = currentPlat.x + currentPlat.width;
-            let finalEndX = finalStartX + Math.sin(stickAngle) * stickLength;
-            let rightEdge = nextPlat.x + nextPlat.width;
-
-            if (finalEndX > rightEdge + 40) {
-                phase = "overwhelm_shock"; shockTimer = 35; screenShake = 18; 
-                triggerPlatformBreak(nextPlat); isSuccess = false;
-            } 
-            else if (finalEndX > rightEdge && finalEndX <= rightEdge + 40) {
-                isSuccess = false; targetPlayerX = finalEndX; phase = "walk";
-            }
-            else if (finalEndX >= nextPlat.x && finalEndX <= rightEdge) {
-                isSuccess = true; targetPlayerX = nextPlat.x + nextPlat.width - 15; phase = "walk";
-            } 
-            else {
-                isSuccess = false; targetPlayerX = finalEndX; phase = "walk";
-            }
+        // センサーデータの処理
+        function handleOrientation(event) {
+            // gamma: 左右の傾き（-90度 〜 90度）
+            // beta: 前後の傾き（-180度 〜 180度）
+            tiltX = event.gamma || 0;
+            tiltY = event.beta || 0;
         }
-    }
 
-    if (phase === "overwhelm_shock") {
-        shockTimer--;
-        if (shockTimer <= 0) {
-            phase = "gameover_fall"; fallSpeedY = 2; fallSpeedX = 0.5; 
-        }
-    }
+        // メインループ（更新と描画）
+        function update() {
+            if (!isPlaying) return;
 
-    if (phase === "walk") {
-        playerX += 3; 
-        let startX = currentPlat.x + currentPlat.width;
-        let totalStickWidth = Math.sin(stickAngle) * stickLength;
-        let progress = totalStickWidth === 0 ? 0 : (playerX - startX) / totalStickWidth;
-        progress = Math.min(1, Math.max(0, progress)); 
+            // 1. ボールの速度を傾きに応じて変化（物理演算の真似事）
+            ball.vx += tiltX * ball.speedMultiplier;
+            ball.vy += (tiltY - 45) * ball.speedMultiplier; // 45度くらいスマホを寝かせて持つ状態を基準にする
 
-        let currentStickY = currentPlat.y - Math.cos(stickAngle) * (stickLength * progress);
-        playerY = currentStickY - 25;
+            // 摩擦（スピードが出過ぎないように減速させる）
+            ball.vx *= 0.95;
+            ball.vy *= 0.95;
 
-        if (playerX >= targetPlayerX) {
-            if (isSuccess) {
-                playerX = targetPlayerX; score++; 
-                let shift = nextPlat.baseX - currentPlat.baseX;
-                currentPlat.baseX -= shift; nextPlat.baseX -= shift; playerX -= shift;
-                currentPlat.x -= shift; nextPlat.x -= shift;
-                currentPlat = nextPlat; generateNextPlatform();
-                stickLength = 0; stickAngle = 0; phase = "ready";
-            } else {
-                phase = "gameover_fall"; fallSpeedY = 1; fallSpeedX = 1.5; 
+            // 位置の更新
+            ball.x += ball.vx;
+            ball.y += ball.vy;
+
+            // 2. 壁との衝突判定
+            if (ball.x - ball.radius < 0) {
+                ball.x = ball.radius;
+                ball.vx *= -0.5; // 跳ね返り
             }
-        }
-    } else if (phase !== "gameover_fall" && phase !== "overwhelm_shock" && phase !== "sun_destruction" && phase !== "gameover_display") {
-        playerY = currentPlat.y - 25;
-    }
-
-    if (phase === "gameover_fall") {
-        fallSpeedY += 0.5; playerY += fallSpeedY; playerX += fallSpeedX;
-        currentPlat.y += fallSpeedY; stickAngle += 0.03; 
-
-        if (playerY > canvas.height + 100) {
-            lives--;
-            if (lives <= 0) {
-                gameOver = true; 
-                phase = "gameover_display";
-                checkAndSaveHighScore(); 
-            } else {
-                currentPlat.y = 350; stickLength = 0; stickAngle = 0;
-                playerX = currentPlat.x + currentPlat.width - 15; playerY = currentPlat.y - 25;
-                generateNextPlatform(); phase = "ready";
+            if (ball.x + ball.radius > width) {
+                ball.x = width - ball.radius;
+                ball.vx *= -0.5;
             }
+            if (ball.y - ball.radius < 0) {
+                ball.y = ball.radius;
+                ball.vy *= -0.5;
+            }
+            if (ball.y + ball.radius > height) {
+                ball.y = height - ball.radius;
+                ball.vy *= -0.5;
+            }
+
+            // 3. ゴール判定（2点間の距離の計算）
+            const dx = ball.x - goal.x;
+            const dy = ball.y - goal.y;
+            const distance = Math.sqrt(dx * dx + dy * dy);
+
+            if (distance < ball.radius + goal.radius) {
+                alert('ゴール！クリアおめでとう！');
+                resetGame();
+                return;
+            }
+
+            // 4. 描画処理
+            ctx.clearRect(0, 0, width, height);
+
+            // ゴールの描画（緑）
+            ctx.beginPath();
+            ctx.arc(goal.x, goal.y, goal.radius, 0, Math.PI * 2);
+            ctx.fillStyle = '#2ecc71';
+            ctx.fill();
+            ctx.closePath();
+
+            // ゴールインナーマーク
+            ctx.beginPath();
+            ctx.arc(goal.x, goal.y, goal.radius * 0.6, 0, Math.PI * 2);
+            ctx.fillStyle = '#27ae60';
+            ctx.fill();
+            ctx.closePath();
+
+            // ボールの描画（赤）
+            ctx.beginPath();
+            ctx.arc(ball.x, ball.y, ball.radius, 0, Math.PI * 2);
+            ctx.fillStyle = '#e74c3c';
+            ctx.fill();
+            ctx.closePath();
+
+            // 次のフレームを要求
+            requestAnimationFrame(update);
         }
-    }
 
-    ctx.fillStyle = "#ff3366";
-    ctx.fillRect(playerX, playerY, 15, 25);
-
-    ctx.save();
-    ctx.translate(currentPlat.x + currentPlat.width, currentPlat.y);
-    ctx.rotate(stickAngle);
-    ctx.strokeStyle = (config.num === 4 && cameraY <= 150) ? "#333" : "#fff"; 
-    ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(0, -stickLength); ctx.stroke();
-    ctx.restore();
-
-    if (stageNoticeTimer > 0 && phase !== "sun_destruction" && phase !== "gameover_display") {
-        ctx.fillStyle = "rgba(0, 0, 0, 0.6)"; ctx.fillRect(cameraX, 180 - cameraY, canvas.width, 90);
-        ctx.textAlign = "center"; ctx.fillStyle = "#fff"; ctx.font = "bold 20px sans-serif";
-        ctx.fillText("STAGE CLEAR!", canvas.width / 2 + cameraX, 210 - cameraY);
-        ctx.font = "14px sans-serif"; ctx.fillStyle = "#ffeb3b"; ctx.fillText(`NEXT: ${config.name}`, canvas.width / 2 + cameraX, 235 - cameraY);
-        ctx.fillStyle = "#ff3366"; ctx.font = "bold 12px sans-serif"; ctx.fillText(noticeMessage, canvas.width / 2 + cameraX, 255 - cameraY);
-        stageNoticeTimer--;
-    }
-
-    if (gameOver || phase === "gameover_display") {
-        ctx.fillStyle = "rgba(0,0,0,0.85)"; 
-        ctx.fillRect(cameraX - 50, -cameraY - 50, canvas.width + 100, canvas.height + 100);
-        
-        let uiBaseY = -cameraY + (canvas.height / 2);
-        let uiBaseX = cameraX + (canvas.width / 2);
-
-        ctx.textAlign = "center";
-        ctx.fillStyle = "#ff0055"; ctx.font = "bold 34px sans-serif";
-        ctx.fillText("GAME OVER", uiBaseX, uiBaseY - 40);
-        
-        ctx.font = "bold 16px sans-serif"; ctx.fillStyle = "#64ffda";
-        ctx.fillText(`HI-SCORE: ${highScore}`, uiBaseX, uiBaseY + 15);
-        
-        ctx.font = "bold 20px sans-serif"; ctx.fillStyle = "#ffeb3b";
-        ctx.fillText(`FINAL SCORE: ${score}`, uiBaseX, uiBaseY + 50);
-        
-        ctx.font = "14px sans-serif"; ctx.fillStyle = "#ffffff";
-        ctx.fillText("画面タップでリトライ", uiBaseX, uiBaseY + 105);
-    }
-
-    ctx.restore(); 
-    requestAnimationFrame(update);
-}
-
-resetGame(); 
-phase = "title"; 
-update();
-
-// サービスワーカーの登録スクリプトを追加
-if ('serviceWorker' in navigator) {
-    window.addEventListener('load', () => {
-        navigator.serviceWorker.register('./service-worker.js')
-            .then(reg => console.log('Service Worker 登録成功！', reg))
-            .catch(err => console.log('Service Worker 登録失敗...', err));
-    });
-}
-</script>
-
+        // ゲームのリセット
+        function resetGame() {
+            ball.x = width / 2;
+            ball.y = height - 100;
+            ball.vx = 0;
+            ball.vy = 0;
+            requestAnimationFrame(update);
+        }
+    </script>
 </body>
 </html>
