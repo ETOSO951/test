@@ -262,6 +262,10 @@
         <h2>ショップ（入荷アイテム一覧）</h2>
         <div id="shop-inventory-list"></div>
       </div>
+      <div class="card">
+        <h2>ショップ購入履歴</h2>
+        <div id="shop-history-list" style="max-height:180px; overflow-y:auto;"></div>
+      </div>
     </div>
 
     <!-- 3. 通知・履歴 タブ -->
@@ -302,7 +306,7 @@
         <div style="font-size:0.85rem; font-weight:bold; margin-bottom:4px; color:var(--accent);">■ アイテムを直接あげる</div>
         <select id="gm-item-give-target"><option value="">対象プレイヤーを選択</option></select>
         <select id="gm-item-give-select"></select>
-        <input type="number" id="gm-item-give-power" placeholder="威力設定 (アタック等のみ任意)">
+        <input type="number" id="gm-item-give-power" placeholder="威力設定 (アタック/ドリル/一網打尽等の威力)">
         <button id="gm-item-give-btn" style="margin-bottom:12px;">アイテムを付与する</button>
 
         <div style="font-size:0.85rem; font-weight:bold; margin-bottom:4px; color:var(--gm-color);">■ クールタイムリセット</div>
@@ -325,11 +329,14 @@
       </div>
 
       <div class="card">
-        <h2 class="gm-title">【GM】ショップ入荷・数値設定</h2>
+        <h2 class="gm-title">【GM】ショップ入荷・削除管理</h2>
         <select id="gm-shop-item-select"></select>
         <input type="number" id="gm-shop-price" placeholder="販売価格(pt)">
-        <input type="number" id="gm-shop-power" placeholder="攻撃/全奪取系の場合: 奪えるポイント数(威力)">
-        <button id="gm-add-shop-btn">ショップに入荷</button>
+        <input type="number" id="gm-shop-power" placeholder="攻撃系の場合: 奪えるポイント数(威力)">
+        <button id="gm-add-shop-btn" style="margin-bottom:12px;">ショップに入荷</button>
+
+        <div style="font-size:0.85rem; font-weight:bold; margin-bottom:4px; color:var(--accent);">■ 出品中の商品を削除</div>
+        <div id="gm-shop-delete-list" style="max-height:150px; overflow-y:auto;"></div>
       </div>
     </div>
 
@@ -364,32 +371,31 @@
 
     const GM_NAME = "GM";
 
-    // 端数切り上げ処理ユーティリティ
     function ceilVal(val) {
       return Math.ceil(val);
     }
 
     const ITEM_MASTER = {
-      "attack_custom": { name: "アタック", type: "attack", defaultPower: 50, desc: "指定相手からポイントを奪う（奪取成功でクールタイム発生）" },
-      "attack_drill": { name: "ドリルアタック", type: "attack_drill", defaultPower: 50, desc: "シールド・バリアを無視してポイントを奪う（奪取成功でクールタイム発生）" },
-      "all_attack": { name: "一網打尽", type: "all_attack", defaultPower: 10, desc: "自分以外の参加者全員からポイントを奪う（1pt以上奪取でクールタイム発生）" },
-      "stealth": { name: "ステルス", type: "buff", desc: "次に使用する攻撃アイテムの発動者を「誰か」と隠蔽する" },
-      "thief": { name: "泥棒", type: "thief", desc: "1/2の確率で指定した相手から所持アイテムを1つランダムで奪う" },
-      "shield": { name: "シールド", type: "defense_single", desc: "指定対象1人からの攻撃を1回防いで消費される（複数展開可能）" },
-      "barrier": { name: "バリア", type: "defense_global", desc: "誰からの攻撃でも1回防いだ時点で消費される" },
-      "fake_item": { name: "偽装キット", type: "fake", desc: "指定のアイテムまたは架空のアイテム名/効果に偽装して出品する" },
-      "item_lock": { name: "アイテムロック", type: "curse", desc: "選んだ一人を1日アイテム使用不能にする" },
-      "mirror": { name: "ミラー", type: "defense_reflect_single", desc: "指定対象1人からの攻撃を1回反射して消費される（複数展開可能）" },
-      "cool_resetter": { name: "クールリセッター", type: "utility", desc: "ポイント奪取成功後のクールタイムを解除する" },
-      "power_booster": { name: "パワーブースター", type: "passive", desc: "持っているだけで奪う系の奪う量が永久に5%増加（消費なし）" },
-      "top_point_scope": { name: "トップポイントスコープ", type: "info_top_pt", desc: "1位のプレイヤーの「ポイント数のみ」を確認する（名前は秘匿）" },
-      "random_scope": { name: "ランダムスコープ", type: "info_random", desc: "ランダムなプレイヤー1名の「順位」と「正確なポイント数」を確認する" },
-      "cheat_dice": { name: "イカサマダイス", type: "passive", desc: "持っているとサイコロ対戦で4〜6しか出なくなる" },
-      "item_sensor": { name: "アイテムセンサー", type: "info", desc: "指定の参加者が持っているランダムなアイテムの名前と効果がわかる" },
-      "coupon": { name: "クーポン", type: "buff_shop", desc: "使用後、次回ショップでアイテムを買うまで値段が半額になる" },
-      "companion_damage": { name: "道づれ", type: "sacrifice", desc: "自分のポイントを減らし(自分は0ptまで)、対象のPTをその1.25倍(切り上げ)減らす" },
-      "fastball": { name: "豪速球", type: "destroy", desc: "対象のランダムなアイテムを1つ消滅させる" },
-      "dubbing": { name: "ダビング", type: "utility", desc: "持っている他のアイテムを1つ複製する" }
+      "attack_custom": { name: "アタック", type: "attack", defaultPower: 50, getDesc: (p) => `指定相手から最大 ${p ?? 50} pt 奪う（奪取成功でクールタイム発生）` },
+      "attack_drill": { name: "ドリルアタック", type: "attack_drill", defaultPower: 50, getDesc: (p) => `シールド・バリアを無視して最大 ${p ?? 50} pt 奪う（奪取成功でクールタイム発生）` },
+      "all_attack": { name: "一網打尽", type: "all_attack", defaultPower: 10, getDesc: (p) => `自分以外の参加者全員から各 ${p ?? 10} pt ずつ奪う（1pt以上奪取でクールタイム発生）` },
+      "stealth": { name: "ステルス", type: "buff", getDesc: () => "次に使用する攻撃アイテムの発動者を「誰か」と隠蔽する" },
+      "thief": { name: "泥棒", type: "thief", getDesc: () => "1/2の確率で指定した相手から所持アイテムを1つランダムで奪う" },
+      "shield": { name: "シールド", type: "defense_single", getDesc: () => "指定対象1人からの攻撃を1回防いで消費される（複数展開可能）" },
+      "barrier": { name: "バリア", type: "defense_global", getDesc: () => "誰からの攻撃でも1回防いだ時点で消費される" },
+      "fake_item": { name: "偽装キット", type: "fake", getDesc: () => "指定のアイテムまたは架空のアイテム名/効果に偽装して出品する" },
+      "item_lock": { name: "アイテムロック", type: "curse", getDesc: () => "選んだ一人を1日アイテム使用不能にする" },
+      "mirror": { name: "ミラー", type: "defense_reflect_single", getDesc: () => "指定対象1人からの攻撃を1回反射して消費される（複数展開可能）" },
+      "cool_resetter": { name: "クールリセッター", type: "utility", getDesc: () => "ポイント奪取成功後のクールタイムを解除する" },
+      "power_booster": { name: "パワーブースター", type: "passive", getDesc: () => "持っているだけで奪う系の奪う量が永久に5%増加（消費なし）" },
+      "top_point_scope": { name: "トップポイントスコープ", type: "info_top_pt", getDesc: () => "1位のプレイヤーの「ポイント数のみ」を確認する（名前は秘匿）" },
+      "random_scope": { name: "ランダムスコープ", type: "info_random", getDesc: () => "ランダムなプレイヤー1名の「順位」と「正確なポイント数」を確認する" },
+      "cheat_dice": { name: "イカサマダイス", type: "passive", getDesc: () => "持っているとサイコロ対戦で4〜6しか出なくなる" },
+      "item_sensor": { name: "アイテムセンサー", type: "info", getDesc: () => "指定の参加者が持っているランダムなアイテムの名前と効果がわかる" },
+      "coupon": { name: "クーポン", type: "buff_shop", getDesc: () => "使用後、次回ショップでアイテムを買うまで値段が半額になる" },
+      "companion_damage": { name: "道づれ", type: "sacrifice", getDesc: () => "自分のポイントを減らし(自分は0ptまで)、対象のPTをその1.25倍(切り上げ)減らす" },
+      "fastball": { name: "豪速球", type: "destroy", getDesc: () => "対象のランダムなアイテムを1つ消滅させる" },
+      "dubbing": { name: "ダビング", type: "utility", getDesc: () => "持っている他のアイテムを1つ複製する" }
     };
 
     const app = initializeApp(firebaseConfig);
@@ -478,6 +484,16 @@
       });
     }
 
+    function getItemDisplayNameAndDesc(type, power) {
+      const master = ITEM_MASTER[type] || { name: type, getDesc: () => "効果なし" };
+      let name = master.name;
+      if (power !== undefined && power !== null) {
+        name += ` (威力:${power}pt)`;
+      }
+      const desc = master.getDesc(power);
+      return { name, desc };
+    }
+
     function initCommonListeners() {
       onValue(ref(db, `notifications/${currentUserName}`), (snapshot) => {
         const container = document.getElementById("user-notifications-list");
@@ -519,7 +535,6 @@
           document.getElementById("coupon-badge").classList.add("hidden");
         }
 
-        // マイナスポイント時またはアイテムロック時に制限表示
         if (u.itemLocked || currentPoints < 0) {
           document.getElementById("lock-badge").classList.remove("hidden");
           hasBadge = true;
@@ -616,7 +631,12 @@
 
             if (gmUserContainer && currentUserName === GM_NAME) {
               const u = data[uName];
-              const itemsStr = Object.keys(u.items || {}).map(k => ITEM_MASTER[k]?.name || k).join(", ") || "なし";
+              const itemsStr = Object.keys(u.items || {}).map(k => {
+                const it = u.items[k];
+                const info = getItemDisplayNameAndDesc(it.type, it.power);
+                return info.name;
+              }).join(", ") || "なし";
+
               const div = document.createElement("div");
               div.className = "item-box";
               div.style.padding = "6px 10px";
@@ -694,6 +714,7 @@
       });
 
       listenShop();
+      listenShopLogs();
     }
 
     function renderInventory(items, isLocked, isCool) {
@@ -708,23 +729,24 @@
 
       keys.forEach(itemKey => {
         const item = items[itemKey];
-        const master = ITEM_MASTER[item.type] || { name: item.name || itemKey, desc: "効果なし" };
+        const info = getItemDisplayNameAndDesc(item.type, item.power);
+        const masterType = ITEM_MASTER[item.type]?.type;
+
         const div = document.createElement("div");
         div.className = "item-box";
 
         let html = `<div style="display:flex; justify-content:space-between; align-items:center;">
-          <div><strong>${escapeHTML(master.name)}</strong></div>`;
+          <div><strong>${escapeHTML(info.name)}</strong></div>`;
 
-        // マイナスptまたはロック中の場合はアイテム使用不可
         if (isLocked) {
           html += `<span style="color:var(--gm-color); font-size:0.75rem;">使用不可</span>`;
-        } else if (isCool && ["attack", "attack_drill", "all_attack"].includes(master.type)) {
+        } else if (isCool && ["attack", "attack_drill", "all_attack"].includes(masterType)) {
           html += `<span style="color:var(--accent); font-size:0.75rem;">クールタイム中</span>`;
         } else {
           html += `<button class="small" onclick="useItem('${itemKey}')">使用</button>`;
         }
 
-        html += `</div><div style="font-size:0.75rem; color:var(--text-muted); margin-top:4px;">${escapeHTML(master.desc)}</div>`;
+        html += `</div><div style="font-size:0.75rem; color:var(--text-muted); margin-top:4px;">${escapeHTML(info.desc)}</div>`;
         div.innerHTML = html;
         container.appendChild(div);
       });
@@ -735,10 +757,10 @@
       select.innerHTML = '<option value="">出品アイテムを選択</option>';
       Object.keys(items).forEach(k => {
         const item = items[k];
-        const master = ITEM_MASTER[item.type] || { name: item.name || k };
+        const info = getItemDisplayNameAndDesc(item.type, item.power);
         const opt = document.createElement("option");
         opt.value = k;
-        opt.textContent = master.name;
+        opt.textContent = info.name;
         select.appendChild(opt);
       });
     }
@@ -746,29 +768,81 @@
     function listenShop() {
       onValue(ref(db, 'shop'), (snapshot) => {
         const container = document.getElementById("shop-inventory-list");
+        const gmDeleteContainer = document.getElementById("gm-shop-delete-list");
+
         container.innerHTML = "";
+        if (gmDeleteContainer) gmDeleteContainer.innerHTML = "";
+
         const data = snapshot.val();
         if (!data) {
           container.innerHTML = '<div style="color:var(--text-muted); font-size:0.85rem;">ショップに入荷中のアイテムはありません</div>';
+          if (gmDeleteContainer) gmDeleteContainer.innerHTML = '<div style="color:var(--text-muted); font-size:0.85rem;">商品なし</div>';
           return;
         }
 
         Object.keys(data).forEach(shopId => {
           const item = data[shopId];
-          const master = ITEM_MASTER[item.type] || { name: item.name, desc: "" };
+          const info = getItemDisplayNameAndDesc(item.type, item.power);
+
+          // 一般ショップ一覧
           const div = document.createElement("div");
           div.className = "item-box";
           div.innerHTML = `
             <div style="display:flex; justify-content:space-between; align-items:center;">
-              <div><strong>${escapeHTML(master.name)}</strong></div>
-              <button class="small" onclick="buyShopItem('${shopId}', ${item.price}, '${item.type}')">購入 (${item.price} pt)</button>
+              <div><strong>${escapeHTML(info.name)}</strong></div>
+              <button class="small" onclick="buyShopItem('${shopId}', ${item.price}, '${item.type}', ${item.power ?? 'null'})">購入 (${item.price} pt)</button>
             </div>
-            <div style="font-size:0.75rem; color:var(--text-muted); margin-top:4px;">${escapeHTML(master.desc)}</div>
+            <div style="font-size:0.75rem; color:var(--text-muted); margin-top:4px;">${escapeHTML(info.desc)}</div>
           `;
+          container.appendChild(div);
+
+          // GM用出品削除リスト
+          if (gmDeleteContainer && currentUserName === GM_NAME) {
+            const gmDiv = document.createElement("div");
+            gmDiv.className = "item-box";
+            gmDiv.style.padding = "6px 10px";
+            gmDiv.innerHTML = `
+              <div style="display:flex; justify-content:space-between; align-items:center;">
+                <div style="font-size:0.85rem;"><strong>${escapeHTML(info.name)}</strong> (${item.price} pt)</div>
+                <button class="small danger" onclick="deleteShopItem('${shopId}')">出品削除</button>
+              </div>
+            `;
+            gmDeleteContainer.appendChild(gmDiv);
+          }
+        });
+      });
+    }
+
+    // ショップ購入ログ監視・表示
+    function listenShopLogs() {
+      onValue(ref(db, 'shop_logs'), (snapshot) => {
+        const container = document.getElementById("shop-history-list");
+        container.innerHTML = "";
+        const data = snapshot.val();
+        if (!data) {
+          container.innerHTML = '<div style="color:var(--text-muted); font-size:0.85rem;">購入履歴はありません</div>';
+          return;
+        }
+
+        const logs = Object.values(data).reverse();
+        logs.forEach(log => {
+          const div = document.createElement("div");
+          div.style.fontSize = "0.8rem";
+          div.style.padding = "4px 0";
+          div.style.borderBottom = "1px solid var(--card-border)";
+          div.innerHTML = `<span style="color:var(--accent); font-weight:bold;">${escapeHTML(log.userName)}</span> が 『${escapeHTML(log.itemName)}』 を <span style="color:var(--primary); font-weight:bold;">${log.price} pt</span> で購入 <span class="chat-time">(${log.time})</span>`;
           container.appendChild(div);
         });
       });
     }
+
+    // GMが出品中の商品を削除
+    window.deleteShopItem = async function(shopId) {
+      if (confirm("この商品をショップから削除しますか？")) {
+        await remove(ref(db, `shop/${shopId}`));
+        alert("ショップから削除しました");
+      }
+    };
 
     // アイテム使用メイン処理
     window.useItem = async function(itemKey) {
@@ -780,12 +854,10 @@
       const master = ITEM_MASTER[item.type];
       if (!master) return;
 
-      // クールタイム判定
       if (u.coolTime && ["attack", "attack_drill", "all_attack"].includes(master.type)) {
         return alert("奪取クールタイム中のため、攻撃系アイテムは使用できません。日付変更またはクールリセッターを使用してください。");
       }
 
-      // 各アイテム別の挙動処理
       if (master.type === "attack" || master.type === "attack_drill") {
         const target = prompt("攻撃対象のプレイヤー名を入力してください:");
         if (!target || target === currentUserName) return alert("有効な対象を選択してください");
@@ -794,9 +866,8 @@
         if (!targetSnap.exists()) return alert("対象のプレイヤーが存在しません");
         const tData = targetSnap.val();
 
-        let power = item.power || master.defaultPower || 50;
+        let power = item.power !== undefined ? item.power : (master.defaultPower || 50);
 
-        // パワーブースターパッシブ適用 (5%加算・切り上げ)
         let hasBooster = false;
         Object.values(u.items || {}).forEach(it => { if (it.type === "power_booster") hasBooster = true; });
         if (hasBooster) power = ceilVal(power * 1.05);
@@ -804,20 +875,19 @@
         let blocked = false;
         let reflected = false;
 
-        // 防御判定（シールド/ミラー：対象者単体からの防御、バリア：広域防御）
         if (master.type !== "attack_drill" && tData.activeDefenses && tData.activeDefenses.length > 0) {
           let newDefenses = [];
           for (let def of tData.activeDefenses) {
             if (!blocked && !reflected) {
               if (def.type === "mirror" && def.target === currentUserName) {
                 reflected = true;
-                continue; // 1回防いで消費
+                continue;
               } else if (def.type === "shield" && def.target === currentUserName) {
                 blocked = true;
-                continue; // 1回防いで消費
+                continue;
               } else if (def.type === "barrier") {
                 blocked = true;
-                continue; // 誰からの攻撃でも1回で消費
+                continue;
               }
             }
             newDefenses.push(def);
@@ -828,7 +898,6 @@
         const attackerName = u.stealthActive ? "誰か" : currentUserName;
 
         if (reflected) {
-          // ミラー反射処理
           const myPts = u.points || 0;
           const actualStolen = ceilVal(Math.min(myPts, power));
           await update(ref(db, `users/${currentUserName}`), { points: myPts - actualStolen });
@@ -840,14 +909,13 @@
           await sendNotification(target, "【防御成功】", `${attackerName} からの攻撃を防ぎました！（ガードアイテム消費）`);
           alert("相手の防具により攻撃が防がれました");
         } else {
-          // 奪取実行
           const tPts = tData.points || 0;
           const actualStolen = ceilVal(Math.min(tPts, power));
           
           await update(ref(db, `users/${target}`), { points: tPts - actualStolen });
           await update(ref(db, `users/${currentUserName}`), { 
             points: (u.points || 0) + actualStolen,
-            coolTime: actualStolen > 0 ? true : (u.coolTime || false) // 1pt以上奪えたらクールタイム発生
+            coolTime: actualStolen > 0 ? true : (u.coolTime || false)
           });
 
           await sendNotification(target, "【攻撃被弾】", `${attackerName} からの攻撃により ${actualStolen} pt 奪われました`);
@@ -857,10 +925,9 @@
         if (u.stealthActive) await update(ref(db, `users/${currentUserName}`), { stealthActive: false });
 
       } else if (master.type === "all_attack") {
-        // 一網打尽処理
         const allUsersSnap = await get(ref(db, 'users'));
         const allUsers = allUsersSnap.val() || {};
-        let power = item.power || master.defaultPower || 10;
+        let power = item.power !== undefined ? item.power : (master.defaultPower || 10);
 
         let totalStolen = 0;
         const attackerName = u.stealthActive ? "誰か" : currentUserName;
@@ -885,7 +952,6 @@
         alert(`一網打尽成功！ 合計 ${totalStolen} pt 奪いました`);
 
       } else if (master.type === "defense_single" || master.type === "defense_reflect_single") {
-        // ミラー・シールド（対象指定防御）
         const target = prompt("守りたい対象の相手プレイヤー名を入力してください:");
         if (!target || target === currentUserName) return alert("有効な対象を指定してください");
 
@@ -898,7 +964,6 @@
         alert(`${target} からの攻撃を防ぐ ${master.name} を展開しました`);
 
       } else if (master.type === "defense_global") {
-        // バリア（一括防御）
         let activeDefenses = u.activeDefenses || [];
         activeDefenses.push({ type: "barrier" });
         await update(ref(db, `users/${currentUserName}`), { activeDefenses });
@@ -909,7 +974,6 @@
         alert("クールタイムをリセットしました");
 
       } else if (master.type === "top_pt_scope") {
-        // トップポイントスコープ（ポイント数のみ）
         const allUsersSnap = await get(ref(db, 'users'));
         const allUsers = allUsersSnap.val() || {};
         let maxPt = -Infinity;
@@ -922,12 +986,10 @@
         alert(`【トップポイントスコープ結果】\n現在の1位の所持ポイント: ${maxPt} pt`);
 
       } else if (master.type === "info_random") {
-        // ランダムスコープ（ランダム1名の順位とポイント）
         const allUsersSnap = await get(ref(db, 'users'));
         const allUsers = allUsersSnap.val() || {};
         const userList = Object.keys(allUsers).filter(k => k !== GM_NAME);
         
-        // 順位ソート
         userList.sort((a,b) => (allUsers[b].points || 0) - (allUsers[a].points || 0));
         const randomIndex = Math.floor(Math.random() * userList.length);
         const targetName = userList[randomIndex];
@@ -937,7 +999,6 @@
         alert(`【ランダムスコープ結果】\n対象: ${targetName}\n順位: 第${rank}位\n所持ポイント: ${pts} pt`);
 
       } else if (master.type === "sacrifice") {
-        // 道づれ（自分は0ptまで減算可能）
         const target = prompt("道づれにする対象プレイヤー名を入力してください:");
         if (!target || target === currentUserName) return alert("有効な対象を選択してください");
 
@@ -968,14 +1029,13 @@
         alert("クーポンを適用しました（次回ショップ購入時に半額適用）");
       }
 
-      // 消費型アイテムの削除
       if (master.type !== "passive") {
         await remove(ref(db, `users/${currentUserName}/items/${itemKey}`));
       }
     };
 
-    // ショップ購入処理
-    window.buyShopItem = async function(shopId, basePrice, itemType) {
+    // ショップ購入処理（ログ記録追加）
+    window.buyShopItem = async function(shopId, basePrice, itemType, power) {
       const userSnap = await get(ref(db, `users/${currentUserName}`));
       const u = userSnap.val();
       let finalPrice = basePrice;
@@ -988,15 +1048,30 @@
         return alert(`ポイントが足りません (必要: ${finalPrice} pt)`);
       }
 
-      // 購入・ポイント引き落とし
+      const newItemObj = { type: itemType };
+      if (power !== null && power !== undefined) newItemObj.power = power;
+
       const newItemsRef = push(ref(db, `users/${currentUserName}/items`));
-      await set(newItemsRef, { type: itemType });
+      await set(newItemsRef, newItemObj);
+
       await update(ref(db, `users/${currentUserName}`), { 
         points: (u.points || 0) - finalPrice,
         couponActive: false 
       });
 
-      alert("アイテムを購入しました！");
+      // 購入ログの記録
+      const info = getItemDisplayNameAndDesc(itemType, power);
+      const now = new Date();
+      const timeStr = `${now.getHours()}:${String(now.getMinutes()).padStart(2, '0')}`;
+      const logRef = push(ref(db, 'shop_logs'));
+      await set(logRef, {
+        userName: currentUserName,
+        itemName: info.name,
+        price: finalPrice,
+        time: timeStr
+      });
+
+      alert(`『${info.name}』を ${finalPrice} pt で購入しました！`);
     };
 
     // 取引（換金/アイテム・ポイント送信）申請処理
@@ -1026,7 +1101,7 @@
 
         const userSnap = await get(ref(db, `users/${currentUserName}`));
         const itemObj = userSnap.val()?.items?.[itemKey];
-        const master = ITEM_MASTER[itemObj?.type];
+        const info = getItemDisplayNameAndDesc(itemObj?.type, itemObj?.power);
 
         const reqRef = push(ref(db, `requests/${target}`));
         await set(reqRef, {
@@ -1035,7 +1110,8 @@
           from: currentUserName,
           itemKey: itemKey,
           itemType: itemObj.type,
-          itemName: master?.name || "アイテム",
+          itemPower: itemObj.power ?? null,
+          itemName: info.name,
           price: price
         });
         alert("アイテム売却（換金）申請を送信しました");
@@ -1073,13 +1149,15 @@
           return;
         }
 
-        // ポイント移動＆アイテム移動
         await update(ref(db, `users/${currentUserName}`), { points: (mySnap.val().points || 0) - req.price });
         await update(ref(db, `users/${req.from}`), { points: (sellerSnap.val().points || 0) + req.price });
         await remove(ref(db, `users/${req.from}/items/${req.itemKey}`));
 
+        const newItemObj = { type: req.itemType };
+        if (req.itemPower !== null && req.itemPower !== undefined) newItemObj.power = req.itemPower;
+
         const newRef = push(ref(db, `users/${currentUserName}/items`));
-        await set(newRef, { type: req.itemType });
+        await set(newRef, newItemObj);
 
         alert(`アイテム『${req.itemName}』を ${req.price} pt で購入・受領しました`);
       }
@@ -1165,12 +1243,11 @@
         let dice1 = Math.floor(Math.random() * 6) + 1;
         let dice2 = Math.floor(Math.random() * 6) + 1;
 
-        // イカサマダイスパッシブの判定
         let p1HasDice = false, p2HasDice = false;
         Object.values(p1Snap.val()?.items || {}).forEach(i => { if (i.type === "cheat_dice") p1HasDice = true; });
         Object.values(p2Snap.val()?.items || {}).forEach(i => { if (i.type === "cheat_dice") p2HasDice = true; });
 
-        if (p1HasDice) dice1 = Math.floor(Math.random() * 3) + 4; // 4~6
+        if (p1HasDice) dice1 = Math.floor(Math.random() * 3) + 4;
         if (p2HasDice) dice2 = Math.floor(Math.random() * 3) + 4;
 
         if (dice1 > dice2) winner = p1;
