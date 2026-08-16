@@ -3,19 +3,20 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>リアルタイムポイント＆ゲーム管理</title>
+  <title>リアルタイム ゲーム＆ポイントシステム</title>
   <style>
     :root {
-      --bg: #0f0f12;
-      --card-bg: #1a1a20;
-      --card-border: #2a2a35;
+      --bg: #0d0e12;
+      --card-bg: #161822;
+      --card-border: #26293b;
       --text: #f1f5f9;
-      --text-muted: #94a3b8;
-      --primary: #e11d48; /* ネオンレッド */
+      --text-muted: #8e99b0;
+      --primary: #e11d48;
       --primary-hover: #f43f5e;
-      --secondary: #334155;
+      --secondary: #272a3c;
       --gm-color: #ef4444;
       --accent: #f59e0b;
+      --success: #10b981;
     }
 
     * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -23,112 +24,105 @@
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
       background-color: var(--bg);
       color: var(--text);
-      padding: 16px;
-      max-width: 500px;
+      padding: 12px;
+      max-width: 540px;
       margin: 0 auto;
+      padding-bottom: 70px;
     }
 
-    h1 { font-size: 1.3rem; text-align: center; margin-bottom: 16px; color: var(--primary); text-transform: uppercase; tracking: 1px; }
-    h2 { font-size: 1rem; margin-bottom: 12px; border-bottom: 2px solid var(--primary); padding-bottom: 4px; display: flex; justify-content: space-between; align-items: center; }
+    h1 { font-size: 1.2rem; text-align: center; margin-bottom: 12px; color: var(--primary); letter-spacing: 1px; }
+    h2 { font-size: 0.95rem; margin-bottom: 10px; border-bottom: 2px solid var(--primary); padding-bottom: 4px; display: flex; justify-content: space-between; align-items: center; }
     h2.gm-title { border-bottom-color: var(--gm-color); color: var(--gm-color); }
 
     .card {
       background: var(--card-bg);
       border: 1px solid var(--card-border);
-      padding: 16px;
+      padding: 14px;
       border-radius: 12px;
       box-shadow: 0 4px 12px rgba(0,0,0,0.5);
-      margin-bottom: 16px;
+      margin-bottom: 14px;
     }
 
     .hidden { display: none !important; }
 
+    /* ボトムナビゲーション */
+    .nav-bar {
+      position: fixed;
+      bottom: 0;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 100%;
+      max-width: 540px;
+      background: #11131c;
+      border-top: 1px solid var(--card-border);
+      display: flex;
+      justify-content: space-around;
+      padding: 8px 0;
+      z-index: 1000;
+    }
+    .nav-btn {
+      background: none;
+      border: none;
+      color: var(--text-muted);
+      font-size: 0.75rem;
+      font-weight: bold;
+      cursor: pointer;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 2px;
+      width: auto;
+      padding: 4px 8px;
+    }
+    .nav-btn.active { color: var(--primary); }
+
     input, select, textarea {
       width: 100%;
-      padding: 10px;
-      margin-bottom: 10px;
-      background-color: #0f0f12;
+      padding: 9px;
+      margin-bottom: 8px;
+      background-color: #090a0e;
       border: 1px solid var(--card-border);
       color: var(--text);
-      border-radius: 8px;
-      font-size: 0.95rem;
+      border-radius: 6px;
+      font-size: 0.9rem;
     }
-    input:focus, select:focus, textarea:focus {
-      outline: none;
-      border-color: var(--primary);
-    }
+    input:focus, select:focus, textarea:focus { outline: none; border-color: var(--primary); }
 
     button {
       width: 100%;
-      padding: 10px;
+      padding: 9px;
       background-color: var(--primary);
       color: white;
       border: none;
-      border-radius: 8px;
-      font-size: 0.95rem;
+      border-radius: 6px;
+      font-size: 0.9rem;
       font-weight: bold;
       cursor: pointer;
-      transition: background-color 0.2s;
     }
-    button:hover { background-color: var(--primary-hover); }
-
-    button.secondary { background-color: var(--secondary); }
-    button.small { padding: 4px 8px; font-size: 0.8rem; width: auto; }
+    button.secondary { background-color: var(--secondary); color: var(--text); }
+    button.small { padding: 4px 8px; font-size: 0.75rem; width: auto; }
     button.danger { background-color: #dc2626; }
 
-    .badge {
-      display: inline-block;
-      padding: 2px 8px;
-      font-size: 0.75rem;
-      border-radius: 12px;
-      font-weight: bold;
-    }
+    .badge { display: inline-block; padding: 2px 6px; font-size: 0.7rem; border-radius: 4px; font-weight: bold; }
     .badge-active { background: #15803d; color: #fff; }
     .badge-upcoming { background: #b45309; color: #fff; }
-    .badge-ended { background: #475569; color: #fff; }
 
-    .ranking-list, .log-list { list-style: none; }
-    .ranking-item {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      padding: 10px 0;
-      border-bottom: 1px solid var(--card-border);
-    }
-    .rank { font-weight: bold; width: 35px; color: var(--primary); }
-    .name { flex: 1; }
-    .score { font-weight: bold; color: #fff; }
-
-    .host-item {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
+    .item-box {
+      border: 1px solid var(--card-border);
+      background: #0d0e14;
+      padding: 10px;
+      border-radius: 8px;
       margin-bottom: 8px;
-      padding-bottom: 8px;
-      border-bottom: 1px dashed var(--card-border);
     }
-
     .trade-card {
-      background-color: #1e1b4b;
+      background-color: #17153b;
       border: 1px solid #4338ca;
       padding: 10px;
       border-radius: 8px;
       margin-bottom: 8px;
     }
-
-    .log-item {
-      font-size: 0.85rem;
-      padding: 6px 0;
-      border-bottom: 1px solid var(--card-border);
-      color: var(--text-muted);
-    }
-    .log-time { font-size: 0.75rem; color: #64748b; display: block; }
-
-    .game-card {
-      border-left: 4px solid var(--primary);
-      padding-left: 12px;
-      margin-bottom: 12px;
-    }
+    .log-item { font-size: 0.8rem; padding: 5px 0; border-bottom: 1px solid var(--card-border); color: var(--text-muted); }
+    .log-time { font-size: 0.7rem; color: #52525b; display: block; }
   </style>
 </head>
 <body>
@@ -137,73 +131,137 @@
 
   <!-- ログイン画面 -->
   <div id="auth-section" class="card">
-    <h2>ログイン / 参加登録</h2>
+    <h2>ログイン / 新規登録</h2>
     <input type="text" id="username-input" placeholder="名前（プレイヤー名）">
     <input type="password" id="password-input" placeholder="パスワード">
-    <button id="login-btn">ログイン / 新規登録</button>
+    <button id="login-btn">ログイン / アカウント作成</button>
   </div>
 
-  <!-- 自分のステータス表示 -->
+  <!-- ログイン中のユーザー表示 -->
   <div id="user-info" class="card hidden">
     <div style="display: flex; justify-content: space-between; align-items: center;">
       <div>PLAYER: <strong id="my-name" style="color:var(--primary);"></strong> <span id="gm-badge" style="color:var(--gm-color); font-weight:bold;"></span></div>
+      <div>PT: <strong id="my-points" style="color:var(--accent);">0</strong> pt</div>
       <button id="logout-btn" class="secondary small">ログアウト</button>
     </div>
   </div>
 
-  <!-- ゲーム進行・予告ステータス表示（全員共通） -->
-  <div id="game-status-section" class="card">
-    <h2>ゲーム進行状況</h2>
-    <div id="current-games-list">
-      <div style="color: var(--text-muted); font-size:0.9rem;">予定されたゲームはありません</div>
+  <!-- メインコンテンツ（タブ切り替え） -->
+  <div id="app-content" class="hidden">
+
+    <!-- 1. ダッシュボード タブ -->
+    <div id="tab-dashboard">
+      <div class="card">
+        <h2>ゲーム進行状況</h2>
+        <div id="current-game-info" style="font-weight:bold; color:var(--accent); margin-bottom:6px;">第 1 ゲーム進行中</div>
+        <div id="current-games-list"></div>
+      </div>
+
+      <!-- 届いているトレード・送金承認リクエスト -->
+      <div id="pending-requests" class="card">
+        <h2>承認待ちリクエスト</h2>
+        <div id="pending-container"><div style="color:var(--text-muted); font-size:0.85rem;">到着した申請はありません</div></div>
+      </div>
+
+      <!-- 所持アイテム ＆ バトル操作 -->
+      <div class="card">
+        <h2>所持アイテム ＆ 使用</h2>
+        <div id="inventory-list"></div>
+      </div>
+
+      <!-- ポイント送金・アイテムP2P売買 -->
+      <div class="card">
+        <h2>参加者との取引（合意制）</h2>
+        <select id="trade-mode">
+          <option value="pt">ポイントを送信する</option>
+          <option value="item">アイテムを売る</option>
+        </select>
+
+        <select id="trade-target"><option value="">相手を選択</option></select>
+        
+        <div id="trade-pt-inputs">
+          <input type="number" id="trade-pt-amount" placeholder="送信ポイント数" min="1">
+        </div>
+
+        <div id="trade-item-inputs" class="hidden">
+          <select id="trade-item-select"><option value="">出品アイテムを選択</option></select>
+          <input type="number" id="trade-item-price" placeholder="販売希望価格(pt)" min="1">
+        </div>
+
+        <button id="send-trade-req-btn">取引申請を送信</button>
+      </div>
     </div>
+
+    <!-- 2. ショップ タブ -->
+    <div id="tab-shop" class="hidden">
+      <div class="card">
+        <h2>入荷中アイテム一覧</h2>
+        <div id="shop-inventory-list"></div>
+      </div>
+    </div>
+
+    <!-- 3. ランキング タブ -->
+    <div id="tab-ranking" class="hidden">
+      <div class="card">
+        <h2>順位一覧</h2>
+        <div id="ranking-container">
+          <ul id="ranking-list" style="list-style:none;"></ul>
+        </div>
+      </div>
+    </div>
+
+    <!-- 4. GM管理 タブ（GMログイン時のみ表示） -->
+    <div id="tab-gm" class="hidden">
+      <!-- ゲーム進行・順位公開コントロール -->
+      <div class="card">
+        <h2 class="gm-title">【GM】進行＆順位公開コントロール</h2>
+        <input type="number" id="gm-game-num" placeholder="現在のゲーム数 (例: 1)">
+        <button id="gm-update-game-num-btn" style="margin-bottom:8px;">第何ゲームかを更新</button>
+        <button id="gm-toggle-ranking-btn" class="secondary"></button>
+      </div>
+
+      <!-- ゲーム作成 -->
+      <div class="card">
+        <h2 class="gm-title">【GM】新規ゲーム作成</h2>
+        <input type="text" id="game-title" placeholder="ゲーム名">
+        <textarea id="game-desc" placeholder="ルール・詳細メモ" rows="2"></textarea>
+        <select id="game-status">
+          <option value="active">現在開催中</option>
+          <option value="upcoming">次回予告</option>
+        </select>
+        <button id="create-game-btn" style="background-color:var(--gm-color);">ゲーム登録</button>
+      </div>
+
+      <!-- ショップ入荷管理 -->
+      <div class="card">
+        <h2 class="gm-title">【GM】ショップ入荷・価格設定</h2>
+        <select id="gm-shop-item-select"></select>
+        <input type="number" id="gm-shop-price" placeholder="販売価格(pt)">
+        <button id="gm-add-shop-btn">ショップに入荷 / 更新</button>
+      </div>
+
+      <!-- 参加者個別アイテム・ポイント操作 ＆ 強制削除 -->
+      <div class="card">
+        <h2 class="gm-title">【GM】参加者管理・アイテム直接操作</h2>
+        <div id="gm-user-list"></div>
+      </div>
+
+      <!-- GM用全ログ表示 -->
+      <div class="card">
+        <h2 class="gm-title">【GM】全アクティビティログ</h2>
+        <div id="log-list"></div>
+      </div>
+    </div>
+
   </div>
 
-  <!-- 参加者用：ポイント送信パネル -->
-  <div id="transfer-section" class="card hidden">
-    <h2>ポイント送信（双方の同意が必要）</h2>
-    <select id="transfer-target"><option value="">送信相手を選択</option></select>
-    <input type="number" id="transfer-amount" placeholder="送信ポイント数" min="1">
-    <input type="password" id="transfer-passcode" placeholder="共通の合言葉（相手と共有）">
-    <button id="transfer-btn">送信リクエスト作成</button>
-
-    <div id="pending-trades" style="margin-top: 15px;"></div>
-  </div>
-
-  <!-- GM専用：ゲーム作成・管理パネル -->
-  <div id="gm-game-panel" class="card hidden">
-    <h2 class="gm-title">【GM】ゲームの作成・進行管理</h2>
-    <input type="text" id="game-title" placeholder="ゲーム名（例: 第1ゲーム「ポーカー戦」）">
-    <textarea id="game-desc" placeholder="ルール概要や期間などのメモ" rows="2"></textarea>
-    <select id="game-status">
-      <option value="upcoming">次回予告（準備・エントリー中）</option>
-      <option value="active">現在開催中（ポイント変動あり）</option>
-      <option value="ended">終了</option>
-    </select>
-    <button id="create-game-btn" style="background-color: var(--gm-color);">ゲームを保存・更新</button>
-  </div>
-
-  <!-- GM専用：ポイント操作パネル -->
-  <div id="gm-panel" class="card hidden">
-    <h2 class="gm-title">【GM】ポイント操作</h2>
-    <div id="host-user-list">読み込み中...</div>
-  </div>
-
-  <!-- GM専用：全取引・変動ログ画面 -->
-  <div id="gm-log-panel" class="card hidden">
-    <h2 class="gm-title">【GM】全取引・変動ログ</h2>
-    <ul id="log-list" class="log-list">
-      <li style="color: var(--text-muted);">履歴はありません</li>
-    </ul>
-  </div>
-
-  <!-- 全員共通累計ランキング -->
-  <div id="ranking-section" class="card">
-    <h2>総合ポイントランキング</h2>
-    <ul id="ranking-list" class="ranking-list">
-      <li style="color: var(--text-muted);">データがまだありません</li>
-    </ul>
-  </div>
+  <!-- ボトムナビゲーション -->
+  <nav id="nav-bar" class="nav-bar hidden">
+    <button class="nav-btn active" onclick="switchTab('dashboard')">ホーム</button>
+    <button class="nav-btn" onclick="switchTab('shop')">ショップ</button>
+    <button class="nav-btn" onclick="switchTab('ranking')">順位</button>
+    <button id="nav-gm-btn" class="nav-btn hidden" onclick="switchTab('gm')" style="color:var(--gm-color);">GM管理</button>
+  </nav>
 
   <!-- Firebase SDK -->
   <script type="module">
@@ -213,29 +271,53 @@
 
     // ★ご自身のfirebaseConfigを貼り付けてください
     const firebaseConfig = {
-  apiKey: "AIzaSyDKpHMR2OG551uoQkq4Pf7Tg6sZTSjQ4Tk",
-  authDomain: "chipmanager-aaac0.firebaseapp.com",
-  databaseURL: "https://chipmanager-aaac0-default-rtdb.firebaseio.com",
-  projectId: "chipmanager-aaac0",
-  storageBucket: "chipmanager-aaac0.firebasestorage.app",
-  messagingSenderId: "516021744933",
-  appId: "1:516021744933:web:fa4595b5eccd5cc3c256cc",
-  measurementId: "G-63RWB0FDZK"
-};
+      apiKey: "YOUR_API_KEY",
+      authDomain: "YOUR_PROJECT_ID.firebaseapp.com",
+      databaseURL: "https://YOUR_PROJECT_ID-default-rtdb.firebaseio.com",
+      projectId: "YOUR_PROJECT_ID",
+      storageBucket: "YOUR_PROJECT_ID.appspot.com",
+      messagingSenderId: "YOUR_SENDER_ID",
+      appId: "YOUR_APP_ID"
+    };
 
-    // ★GM（ホスト）の名前
     const GM_NAME = "GM";
+
+    // アイテムマスタ定義
+    const ITEM_MASTER = {
+      "attack_normal": { name: "アタック", type: "attack", power: 50, desc: "指定相手から50pt奪う" },
+      "attack_giga": { name: "ギガアタック", type: "attack", power: 100, desc: "指定相手から100pt奪う" },
+      "attack_drill": { name: "ドリルアタック", type: "attack_drill", power: 50, desc: "シールドを無視して50pt奪う" },
+      "attack_stealth": { name: "ステルスアタック", type: "attack", power: 50, stealth: true, desc: "相手に誰から奪われたか隠して50pt奪う" },
+      "shield": { name: "シールド", type: "defense", desc: "指定した1人からの攻撃を1回防ぐ" },
+      "mirror": { name: "ミラー", type: "defense", desc: "指定した1人からの通常攻撃を無効化し跳ね返す" },
+      "power_booster": { name: "パワーブースター", type: "passive", desc: "所持しているだけで全ての攻撃力+20pt" },
+      "cool_resetter": { name: "クールリセッター", type: "utility", desc: "攻撃成功後のクールダウンを即座に解除" },
+      "info_points": { name: "スコープ", type: "info", desc: "指定相手の正確な所持ポイントを確認" }
+    };
 
     const app = initializeApp(firebaseConfig);
     const db = getDatabase(app);
 
     let currentUserName = localStorage.getItem("rtdb_user_name");
 
+    // 初期化
     if (currentUserName) {
       handleLoginSuccess(currentUserName);
     }
 
-    // ログイン / 新規登録
+    // タブ切り替え機能
+    window.switchTab = function(tabName) {
+      ['dashboard', 'shop', 'ranking', 'gm'].forEach(t => {
+        const el = document.getElementById(`tab-${t}`);
+        if (el) el.classList.add('hidden');
+      });
+      document.getElementById(`tab-${tabName}`).classList.remove('hidden');
+
+      document.querySelectorAll('.nav-btn').forEach(btn => btn.classList.remove('active'));
+      event.currentTarget?.classList?.add('active');
+    };
+
+    // ログイン処理（名前の一意性・重複チェック）
     document.getElementById("login-btn").addEventListener("click", async () => {
       const name = document.getElementById("username-input").value.trim();
       const password = document.getElementById("password-input").value.trim();
@@ -249,11 +331,12 @@
           if (snapshot.val().password === password) {
             handleLoginSuccess(name);
           } else {
-            alert("パスワードが一致しません");
+            alert("同名のアカウントが存在します。パスワードが正しくありません。");
           }
         } else {
-          await set(userRef, { name, password, points: 0 });
-          alert("アカウントを新規作成しました");
+          // 重複なし：新規作成
+          await set(userRef, { name, password, points: 0, items: {} });
+          addLog(`[新規登録] プレイヤー ${name} が参加しました`);
           handleLoginSuccess(name);
         }
       } catch (e) {
@@ -272,275 +355,570 @@
 
       document.getElementById("auth-section").classList.add("hidden");
       document.getElementById("user-info").classList.remove("hidden");
+      document.getElementById("app-content").classList.remove("hidden");
+      document.getElementById("nav-bar").classList.remove("hidden");
       document.getElementById("my-name").textContent = name;
 
       const isGM = (name === GM_NAME);
 
       if (isGM) {
         document.getElementById("gm-badge").textContent = "(GM)";
-        document.getElementById("gm-game-panel").classList.remove("hidden");
-        document.getElementById("gm-panel").classList.remove("hidden");
-        document.getElementById("gm-log-panel").classList.remove("hidden");
-        document.getElementById("transfer-section").classList.add("hidden");
-        listenUsersForGM();
-        listenLogsForGM();
+        document.getElementById("nav-gm-btn").classList.remove("hidden");
+        initGMUI();
       } else {
         document.getElementById("gm-badge").textContent = "";
-        document.getElementById("gm-game-panel").classList.add("hidden");
-        document.getElementById("gm-panel").classList.add("hidden");
-        document.getElementById("gm-log-panel").classList.add("hidden");
-        document.getElementById("transfer-section").classList.remove("hidden");
-        listenPendingTrades();
+        document.getElementById("nav-gm-btn").classList.add("hidden");
       }
+
+      initCommonListeners();
     }
 
-    // ログ記録関数
     function addLog(detail) {
       const logRef = push(ref(db, 'logs'));
       const time = new Date().toLocaleString("ja-JP");
       set(logRef, { detail, time });
     }
 
-    // GM用：新規ゲームの追加
-    document.getElementById("create-game-btn").addEventListener("click", async () => {
-      const title = document.getElementById("game-title").value.trim();
-      const desc = document.getElementById("game-desc").value.trim();
-      const status = document.getElementById("game-status").value;
+    // 共通データ監視（ゲームステータス・ポイント・所持品）
+    function initCommonListeners() {
+      // 1. 自分のポイント・所持品監視
+      onValue(ref(db, 'users/' + currentUserName), (snapshot) => {
+        const u = snapshot.val();
+        if (!u) return;
+        document.getElementById("my-points").textContent = u.points || 0;
+        renderInventory(u.items || {});
+        renderTradeItemSelect(u.items || {});
+      });
 
-      if (!title) return alert("ゲーム名を入力してください");
+      // 2. ゲーム状態＆順位公開状況監視
+      onValue(ref(db, 'game_state'), (snapshot) => {
+        const state = snapshot.val() || { current_num: 1, is_public: false };
+        document.getElementById("current-game-info").textContent = `第 ${state.current_num || 1} ゲーム進行中`;
+        
+        if (currentUserName === GM_NAME) {
+          document.getElementById("gm-toggle-ranking-btn").textContent = 
+            state.is_public ? "順位を【非公開】にする" : "順位を【公開】にする";
+        }
+        
+        renderRanking(state.is_public);
+      });
 
-      const gameRef = push(ref(db, 'games'));
-      await set(gameRef, { title, desc, status });
+      // 3. 全員リスト監視（取引先選択肢用）
+      onValue(ref(db, 'users'), (snapshot) => {
+        const data = snapshot.val();
+        const select = document.getElementById("trade-target");
+        select.innerHTML = '<option value="">相手を選択</option>';
+        if (!data) return;
 
-      document.getElementById("game-title").value = "";
-      document.getElementById("game-desc").value = "";
-      addLog(`[ゲーム設定] 新しいゲーム「${title}」が作成されました (${status})`);
-      alert("ゲーム情報を更新しました");
-    });
+        Object.keys(data).forEach(uName => {
+          if (uName !== currentUserName && uName !== GM_NAME) {
+            const opt = document.createElement("option");
+            opt.value = uName; opt.textContent = uName;
+            select.appendChild(opt);
+          }
+        });
+      });
 
-    // ゲーム一覧の監視表示（全員共通）
-    onValue(ref(db, 'games'), (snapshot) => {
-      const container = document.getElementById("current-games-list");
+      // 4. トレード・送金承認待ち申請の監視
+      listenTrades();
+
+      // 5. ショップ入荷状況監視
+      listenShop();
+    }
+
+    // ランキング描画（非公開制御付き）
+    function renderRanking(isPublic) {
+      const container = document.getElementById("ranking-list");
       container.innerHTML = "";
-      const data = snapshot.val();
 
-      if (!data) {
-        container.innerHTML = '<div style="color: var(--text-muted); font-size:0.9rem;">予定されたゲームはありません</div>';
+      if (!isPublic && currentUserName !== GM_NAME) {
+        container.innerHTML = '<li style="color:var(--text-muted); text-align:center; padding:20px;">現在順位は非公開です</li>';
         return;
       }
 
-      Object.keys(data).reverse().forEach(gameId => {
-        const g = data[gameId];
-        let badgeHtml = '';
-        if (g.status === 'active') badgeHtml = '<span class="badge badge-active">開催中</span>';
-        else if (g.status === 'upcoming') badgeHtml = '<span class="badge badge-upcoming">次回予告</span>';
-        else badgeHtml = '<span class="badge badge-ended">終了</span>';
+      const q = query(ref(db, 'users'), orderByChild('points'));
+      get(q).then(snapshot => {
+        const users = [];
+        snapshot.forEach(c => {
+          const u = c.val();
+          if (u.name !== GM_NAME) users.push(u);
+        });
+        users.reverse();
 
-        const div = document.createElement("div");
-        div.className = "game-card";
-        div.innerHTML = `
-          <div style="display:flex; justify-content:space-between; align-items:center;">
-            <strong>${g.title}</strong>
-            ${badgeHtml}
-          </div>
-          <div style="font-size:0.85rem; color:var(--text-muted); margin-top:4px;">${g.desc || '説明なし'}</div>
-        `;
-        container.appendChild(div);
-      });
-    });
-
-    // GM用：ポイント手動増減
-    window.changePoints = async function(targetName, delta) {
-      const userRef = ref(db, 'users/' + targetName);
-      const snap = await get(userRef);
-      if (!snap.exists()) return;
-
-      const currentPts = snap.val().points || 0;
-      const newPts = currentPts + delta;
-      await update(userRef, { points: newPts });
-
-      addLog(`[GM操作] ${targetName} のポイント: ${delta > 0 ? '+' + delta : delta}pt (${currentPts}pt -> ${newPts}pt)`);
-    };
-
-    // GM用画面更新
-    function listenUsersForGM() {
-      onValue(ref(db, 'users'), (snapshot) => {
-        const list = document.getElementById("host-user-list");
-        list.innerHTML = "";
-        const data = snapshot.val();
-        if (!data) return;
-
-        Object.keys(data).forEach(name => {
-          if (name === GM_NAME) return;
-          const u = data[name];
-          const div = document.createElement("div");
-          div.className = "host-item";
-          div.innerHTML = `
-            <span><strong>${u.name}</strong> (${u.points} pt)</span>
-            <div>
-              <button class="small" onclick="changePoints('${name}', 10)">+10</button>
-              <button class="small" onclick="changePoints('${name}', 1)">+1</button>
-              <button class="small secondary" onclick="changePoints('${name}', -1)">-1</button>
-              <button class="small secondary" onclick="changePoints('${name}', -10)">-10</button>
-            </div>
-          `;
-          list.appendChild(div);
+        users.forEach((u, i) => {
+          const li = document.createElement("li");
+          li.style.cssText = "display:flex; justify-space-between; padding:8px 0; border-bottom:1px solid var(--card-border);";
+          li.innerHTML = `<span>${i + 1}位: <strong>${u.name}</strong></span><span style="color:var(--accent); font-weight:bold;">${u.points} pt</span>`;
+          container.appendChild(li);
         });
       });
     }
 
-    // GM用ログ閲覧
-    function listenLogsForGM() {
+    // インベントリ（所持品）描画・使用
+    function renderInventory(items) {
+      const container = document.getElementById("inventory-list");
+      container.innerHTML = "";
+
+      const itemKeys = Object.keys(items).filter(k => items[k] > 0);
+      if (itemKeys.length === 0) {
+        container.innerHTML = '<div style="color:var(--text-muted); font-size:0.85rem;">所持アイテムはありません</div>';
+        return;
+      }
+
+      itemKeys.forEach(itemId => {
+        const info = ITEM_MASTER[itemId] || { name: itemId, desc: "" };
+        const count = items[itemId];
+        const div = document.createElement("div");
+        div.className = "item-box";
+        div.innerHTML = `
+          <div style="display:flex; justify-content:space-between;">
+            <strong>${info.name} (x${count})</strong>
+            <button class="small" onclick="useItem('${itemId}')">使用</button>
+          </div>
+          <div style="font-size:0.75rem; color:var(--text-muted); margin-top:2px;">${info.desc}</div>
+        `;
+        container.appendChild(div);
+      });
+    }
+
+    // バトル・アイテム使用ロジック
+    window.useItem = async function(itemId) {
+      const info = ITEM_MASTER[itemId];
+      if (!info) return;
+
+      const mySnap = await get(ref(db, 'users/' + currentUserName));
+      const myData = mySnap.val();
+
+      // クールダウンチェック
+      if (info.type.startsWith("attack")) {
+        if (myData.attack_cooldown && new Date().getTime() < myData.attack_cooldown) {
+          return alert("本日分（次回0:00まで）の攻撃は完了しています。クールリセッターで解除できます。");
+        }
+      }
+
+      // クールリセッター処理
+      if (itemId === "cool_resetter") {
+        await update(ref(db, 'users/' + currentUserName), { attack_cooldown: null });
+        await consumeItem(currentUserName, itemId);
+        addLog(`[アイテム使用] ${currentUserName} がクールリセッターを使用しました`);
+        return alert("攻撃クールダウンを解除しました！");
+      }
+
+      // 対象選択が必要なアイテム
+      let targetUser = "";
+      if (["attack", "attack_drill", "defense", "info"].some(t => info.type.startsWith(t))) {
+        targetUser = prompt("対象の参加者名を入力してください:");
+        if (!targetUser || targetUser === currentUserName) return alert("有効な対象を入力してください");
+      }
+
+      // 情報開示アイテム
+      if (itemId === "info_points") {
+        const targetSnap = await get(ref(db, 'users/' + targetUser));
+        if (!targetSnap.exists()) return alert("対象が存在しません");
+        alert(`${targetUser} の所持ポイントは ${targetSnap.val().points || 0} pt です`);
+        await consumeItem(currentUserName, itemId);
+        addLog(`[情報開示] ${currentUserName} が ${targetUser} の所持ポイントを確認しました`);
+        return;
+      }
+
+      // シールド・ミラーのセット（防具）
+      if (info.type === "defense") {
+        await set(ref(db, `defenses/${targetUser}/${currentUserName}`), itemId);
+        await consumeItem(currentUserName, itemId);
+        addLog(`[防御セット] ${currentUserName} が ${targetUser} に対して ${info.name} を展開しました`);
+        return alert(`${targetUser} からの攻撃に対する ${info.name} をセットしました`);
+      }
+
+      // 【攻撃判定処理ロジック】
+      if (info.type.startsWith("attack")) {
+        const targetSnap = await get(ref(db, 'users/' + targetUser));
+        if (!targetSnap.exists()) return alert("対象が存在しません");
+        const targetData = targetSnap.val();
+
+        // 攻撃力計算（パワーブースター保有判定）
+        let power = info.power;
+        if (myData.items?.power_booster > 0) power += 20;
+
+        // 相手の設置防御カード確認
+        const defenseSnap = await get(ref(db, `defenses/${currentUserName}/${targetUser}`));
+        const activeDefense = defenseSnap.val(); // "shield" or "mirror"
+
+        let attackSuccess = false;
+        let isReflected = false;
+
+        if (activeDefense === "mirror") {
+          if (info.type === "attack_drill") {
+            // 【貫通 vs ミラー】攻撃は無効化、反射なし（双方ノーダメージ）
+            await remove(ref(db, `defenses/${currentUserName}/${targetUser}`));
+            addLog(`[バトル] ${currentUserName} のドリルアタック vs ${targetUser} のミラー -> 攻撃無効化（反射なし）`);
+            alert("相手のミラーにより貫通攻撃が無効化されました（反射なし）");
+          } else {
+            // 【通常 vs ミラー】攻撃無効化 ＋ 自分にダメージ跳ね返し
+            await remove(ref(db, `defenses/${currentUserName}/${targetUser}`));
+            isReflected = true;
+            addLog(`[バトル反射] ${currentUserName} の攻撃が ${targetUser} のミラーで跳ね返されました！`);
+            alert(`相手のミラーにより攻撃が反射されました！ ${power} pt を失います`);
+
+            // 自分からポイント減少
+            const newMyPts = Math.max(0, myData.points - power);
+            await update(ref(db, 'users/' + currentUserName), { points: newMyPts });
+          }
+        } else if (activeDefense === "shield" && info.type !== "attack_drill") {
+          // 【通常 vs シールド】防がれる
+          await remove(ref(db, `defenses/${currentUserName}/${targetUser}`));
+          addLog(`[バトル防衛] ${targetUser} が ${currentUserName} からの攻撃をシールドで防ぎました`);
+          alert("相手のシールドにより攻撃が防がれました");
+        } else {
+          // 攻撃成功（貫通含む）
+          attackSuccess = true;
+          const actualSteal = Math.min(targetData.points || 0, power);
+          
+          await update(ref(db, 'users/' + targetUser), { points: (targetData.points || 0) - actualSteal });
+          await update(ref(db, 'users/' + currentUserName), { points: (myData.points || 0) + actualSteal });
+
+          // ログ・通知
+          if (info.stealth) {
+            addLog(`[ステルス攻撃] 正体不明の相手が ${targetUser} から ${actualSteal} pt 奪いました`);
+          } else {
+            addLog(`[攻撃成功] ${currentUserName} が ${targetUser} から ${actualSteal} pt 奪いました`);
+          }
+          alert(`攻撃成功！ ${targetUser} から ${actualSteal} pt 奪いました`);
+        }
+
+        // アイテム消費＆翌日までのクールダウンセット
+        await consumeItem(currentUserName, itemId);
+        const tomorrow = new Date();
+        tomorrow.setHours(24, 0, 0, 0); // 翌日0:00
+        await update(ref(db, 'users/' + currentUserName), { attack_cooldown: tomorrow.getTime() });
+      }
+    };
+
+    async function consumeItem(userName, itemId) {
+      const itemRef = ref(db, `users/${userName}/items/${itemId}`);
+      const snap = await get(itemRef);
+      const current = snap.val() || 0;
+      if (current <= 1) await remove(itemRef);
+      else await set(itemRef, current - 1);
+    }
+
+    // 取引（送金・アイテム売買）リクエスト作成
+    document.getElementById("trade-mode").addEventListener("change", (e) => {
+      if (e.target.value === "pt") {
+        document.getElementById("trade-pt-inputs").classList.remove("hidden");
+        document.getElementById("trade-item-inputs").classList.add("hidden");
+      } else {
+        document.getElementById("trade-pt-inputs").classList.add("hidden");
+        document.getElementById("trade-item-inputs").classList.remove("hidden");
+      }
+    });
+
+    function renderTradeItemSelect(items) {
+      const select = document.getElementById("trade-item-select");
+      select.innerHTML = '<option value="">出品アイテムを選択</option>';
+      Object.keys(items).forEach(k => {
+        if (items[k] > 0) {
+          const opt = document.createElement("option");
+          opt.value = k;
+          opt.textContent = `${ITEM_MASTER[k]?.name || k} (所持:${items[k]})`;
+          select.appendChild(opt);
+        }
+      });
+    }
+
+    document.getElementById("send-trade-req-btn").addEventListener("click", async () => {
+      const mode = document.getElementById("trade-mode").value;
+      const target = document.getElementById("trade-target").value;
+      if (!target) return alert("相手を選択してください");
+
+      if (mode === "pt") {
+        const amount = parseInt(document.getElementById("trade-pt-amount").value);
+        if (!amount || amount <= 0) return alert("正当なポイントを入力してください");
+
+        const tradeRef = push(ref(db, 'trades'));
+        await set(tradeRef, { type: "pt", from: currentUserName, to: target, amount, status: "pending" });
+        alert("ポイント送金リクエストを送信しました（相手の承認待ち）");
+      } else {
+        const itemId = document.getElementById("trade-item-select").value;
+        const price = parseInt(document.getElementById("trade-item-price").value);
+        if (!itemId || !price || price <= 0) return alert("アイテムと希望価格を入力してください");
+
+        const tradeRef = push(ref(db, 'trades'));
+        await set(tradeRef, { type: "item", from: currentUserName, to: target, itemId, price, status: "pending" });
+        alert("アイテム出品リクエストを送信しました（相手の承認待ち）");
+      }
+    });
+
+    // 承認待ちトレードの監視・実行
+    function listenTrades() {
+      onValue(ref(db, 'trades'), (snapshot) => {
+        const container = document.getElementById("pending-container");
+        container.innerHTML = "";
+        const data = snapshot.val();
+        let count = 0;
+
+        if (data) {
+          Object.keys(data).forEach(tId => {
+            const t = data[tId];
+            if (t.to === currentUserName && t.status === "pending") {
+              count++;
+              const div = document.createElement("div");
+              div.className = "trade-card";
+
+              if (t.type === "pt") {
+                div.innerHTML = `
+                  <div><strong>${t.from}</strong> から ${t.amount} pt の受取リクエスト</div>
+                  <div style="display:flex; gap:5px; margin-top:5px;">
+                    <button class="small" onclick="acceptPtTrade('${tId}')">承認して受取</button>
+                    <button class="small danger" onclick="rejectTrade('${tId}')">拒否</button>
+                  </div>
+                `;
+              } else {
+                const itemInfo = ITEM_MASTER[t.itemId] || { name: t.itemId };
+                div.innerHTML = `
+                  <div><strong>${t.from}</strong> から 『${itemInfo.name}』 を <strong>${t.price} pt</strong> で購入する提案</div>
+                  <div style="display:flex; gap:5px; margin-top:5px;">
+                    <button class="small" onclick="acceptItemTrade('${tId}')">承認して購入</button>
+                    <button class="small danger" onclick="rejectTrade('${tId}')">拒否</button>
+                  </div>
+                `;
+              }
+              container.appendChild(div);
+            }
+          });
+        }
+
+        if (count === 0) {
+          container.innerHTML = '<div style="color:var(--text-muted); font-size:0.85rem;">到着した申請はありません</div>';
+        }
+      });
+    }
+
+    window.acceptPtTrade = async function(tId) {
+      const snap = await get(ref(db, 'trades/' + tId));
+      const t = snap.val();
+      const fromSnap = await get(ref(db, 'users/' + t.from));
+      
+      if ((fromSnap.val().points || 0) < t.amount) {
+        remove(ref(db, 'trades/' + tId));
+        return alert("相手のポイントが不足しているため取引はキャンセルされました");
+      }
+
+      await update(ref(db, 'users/' + t.from), { points: fromSnap.val().points - t.amount });
+      const mySnap = await get(ref(db, 'users/' + currentUserName));
+      await update(ref(db, 'users/' + currentUserName), { points: (mySnap.val().points || 0) + t.amount });
+
+      await remove(ref(db, 'trades/' + tId));
+      addLog(`[ポイント移動] ${t.from} -> ${currentUserName} へ ${t.amount} pt 移動しました`);
+      alert("ポイントを受け取りました！");
+    };
+
+    window.acceptItemTrade = async function(tId) {
+      const snap = await get(ref(db, 'trades/' + tId));
+      const t = snap.val();
+      const mySnap = await get(ref(db, 'users/' + currentUserName));
+      const myPts = mySnap.val().points || 0;
+
+      if (myPts < t.price) return alert("所持ポイントが足りません");
+
+      const sellerSnap = await get(ref(db, `users/${t.from}/items/${t.itemId}`));
+      if ((sellerSnap.val() || 0) < 1) {
+        remove(ref(db, 'trades/' + tId));
+        return alert("出品者が該当アイテムを所有していません");
+      }
+
+      // 決済・アイテム移転
+      await update(ref(db, 'users/' + currentUserName), { points: myPts - t.price });
+      const sellerPtSnap = await get(ref(db, 'users/' + t.from));
+      await update(ref(db, 'users/' + t.from), { points: (sellerPtSnap.val().points || 0) + t.price });
+
+      await consumeItem(t.from, t.itemId);
+      
+      const myItemSnap = await get(ref(db, `users/${currentUserName}/items/${t.itemId}`));
+      await set(ref(db, `users/${currentUserName}/items/${t.itemId}`), (myItemSnap.val() || 0) + 1);
+
+      await remove(ref(db, 'trades/' + tId));
+      addLog(`[P2P売買] ${currentUserName} が ${t.from} から『${ITEM_MASTER[t.itemId]?.name}』を ${t.price}pt で購入しました`);
+      alert("購入が完了しました！");
+    };
+
+    window.rejectTrade = async function(tId) {
+      await remove(ref(db, 'trades/' + tId));
+      alert("リクエストを拒否しました");
+    };
+
+    // ショップ機能
+    function listenShop() {
+      onValue(ref(db, 'shop'), (snapshot) => {
+        const container = document.getElementById("shop-inventory-list");
+        container.innerHTML = "";
+        const data = snapshot.val();
+
+        if (!data) {
+          container.innerHTML = '<div style="color:var(--text-muted);">現在入荷中の商品はありません</div>';
+          return;
+        }
+
+        Object.keys(data).forEach(itemId => {
+          const shopItem = data[itemId];
+          const info = ITEM_MASTER[itemId] || { name: itemId, desc: "" };
+          const div = document.createElement("div");
+          div.className = "item-box";
+          div.innerHTML = `
+            <div style="display:flex; justify-content:space-between; align-items:center;">
+              <div><strong>${info.name}</strong> - <span style="color:var(--accent); font-weight:bold;">${shopItem.price} pt</span></div>
+              <button class="small" onclick="buyShopItem('${itemId}', ${shopItem.price})">購入</button>
+            </div>
+            <div style="font-size:0.75rem; color:var(--text-muted); margin-top:2px;">${info.desc}</div>
+          `;
+          container.appendChild(div);
+        });
+      });
+    }
+
+    window.buyShopItem = async function(itemId, price) {
+      const mySnap = await get(ref(db, 'users/' + currentUserName));
+      const myPts = mySnap.val().points || 0;
+      if (myPts < price) return alert("ポイントが不足しています");
+
+      await update(ref(db, 'users/' + currentUserName), { points: myPts - price });
+      const itemSnap = await get(ref(db, `users/${currentUserName}/items/${itemId}`));
+      await set(ref(db, `users/${currentUserName}/items/${itemId}`), (itemSnap.val() || 0) + 1);
+
+      addLog(`[ショップ購入] ${currentUserName} が『${ITEM_MASTER[itemId]?.name}』を ${price}pt で購入しました`);
+      alert("購入が完了しました！");
+    };
+
+    // GM機能初期化
+    function initGMUI() {
+      // ショップ入荷用選択肢の準備
+      const select = document.getElementById("gm-shop-item-select");
+      select.innerHTML = "";
+      Object.keys(ITEM_MASTER).forEach(k => {
+        const opt = document.createElement("option");
+        opt.value = k; opt.textContent = ITEM_MASTER[k].name;
+        select.appendChild(opt);
+      });
+
+      // 順位公開トグル
+      document.getElementById("gm-toggle-ranking-btn").addEventListener("click", async () => {
+        const stateSnap = await get(ref(db, 'game_state'));
+        const current = stateSnap.val()?.is_public || false;
+        await update(ref(db, 'game_state'), { is_public: !current });
+        addLog(`[GM操作] 順位表示を ${!current ? '公開' : '非公開'} に変更しました`);
+      });
+
+      // ゲーム数更新
+      document.getElementById("gm-update-game-num-btn").addEventListener("click", async () => {
+        const num = parseInt(document.getElementById("gm-game-num").value);
+        if (!num) return alert("数値を入力してください");
+        await update(ref(db, 'game_state'), { current_num: num });
+        addLog(`[GM操作] 現在のゲーム数を「第 ${num} ゲーム」に変更しました`);
+        alert("更新しました");
+      });
+
+      // ゲーム作成
+      document.getElementById("create-game-btn").addEventListener("click", async () => {
+        const title = document.getElementById("game-title").value.trim();
+        const desc = document.getElementById("game-desc").value.trim();
+        const status = document.getElementById("game-status").value;
+        if (!title) return alert("ゲーム名を入力してください");
+
+        const gRef = push(ref(db, 'games'));
+        await set(gRef, { title, desc, status });
+        addLog(`[ゲーム作成] 新ゲーム「${title}」が作成されました`);
+        alert("登録完了");
+      });
+
+      // ショップ入荷設定
+      document.getElementById("gm-add-shop-btn").addEventListener("click", async () => {
+        const itemId = document.getElementById("gm-shop-item-select").value;
+        const price = parseInt(document.getElementById("gm-shop-price").value);
+        if (!price || price <= 0) return alert("価格を正しく設定してください");
+
+        await set(ref(db, 'shop/' + itemId), { price });
+        addLog(`[GMショップ入荷] 『${ITEM_MASTER[itemId]?.name}』を ${price}pt で入荷しました`);
+        alert("ショップ設定を更新しました");
+      });
+
+      // 参加者管理・アイテム操作・強奪・削除
+      onValue(ref(db, 'users'), (snapshot) => {
+        const container = document.getElementById("gm-user-list");
+        container.innerHTML = "";
+        const data = snapshot.val();
+        if (!data) return;
+
+        Object.keys(data).forEach(uName => {
+          if (uName === GM_NAME) return;
+          const u = data[uName];
+          const div = document.createElement("div");
+          div.className = "item-box";
+          div.innerHTML = `
+            <div style="display:flex; justify-content:space-between; align-items:center;">
+              <strong>${u.name}</strong> (${u.points || 0} pt)
+              <button class="small danger" onclick="gmDeleteUser('${uName}')">削除</button>
+            </div>
+            <div style="margin-top:5px; display:flex; gap:4px;">
+              <button class="small" onclick="gmChangePt('${uName}', 10)">+10pt</button>
+              <button class="small secondary" onclick="gmChangePt('${uName}', -10)">-10pt</button>
+              <button class="small" onclick="gmGiveItem('${uName}')">アイテム付与/奪取</button>
+            </div>
+          `;
+          container.appendChild(div);
+        });
+      });
+
+      // GM全ログ監視
       onValue(ref(db, 'logs'), (snapshot) => {
-        const list = document.getElementById("log-list");
-        list.innerHTML = "";
+        const container = document.getElementById("log-list");
+        container.innerHTML = "";
         const logs = [];
         snapshot.forEach(c => { logs.push(c.val()); });
         logs.reverse();
 
         logs.forEach(l => {
-          const li = document.createElement("li");
-          li.className = "log-item";
-          li.innerHTML = `${l.detail} <span class="log-time">${l.time}</span>`;
-          list.appendChild(li);
+          const div = document.createElement("div");
+          div.className = "log-item";
+          div.innerHTML = `${l.detail} <span class="log-time">${l.time}</span>`;
+          container.appendChild(div);
         });
       });
     }
 
-    // ポイント送信リクエスト作成（参加者用）
-    document.getElementById("transfer-btn").addEventListener("click", async () => {
-      const target = document.getElementById("transfer-target").value;
-      const amount = parseInt(document.getElementById("transfer-amount").value);
-      const passcode = document.getElementById("transfer-passcode").value.trim();
-
-      if (!target || !amount || amount <= 0 || !passcode) {
-        return alert("すべての項目を正しく入力してください");
-      }
-
-      const mySnap = await get(ref(db, 'users/' + currentUserName));
-      if ((mySnap.val().points || 0) < amount) {
-        return alert("所持ポイントが不足しています");
-      }
-
-      const tradeRef = push(ref(db, 'trades'));
-      await set(tradeRef, {
-        from: currentUserName,
-        to: target,
-        amount: amount,
-        passcode: passcode,
-        status: "pending"
-      });
-
-      alert("送金リクエストを作成しました。相手の承認を待ってください。");
-      document.getElementById("transfer-amount").value = "";
-      document.getElementById("transfer-passcode").value = "";
-    });
-
-    // 承認待ちリクエストの監視（自分宛て）
-    function listenPendingTrades() {
-      onValue(ref(db, 'trades'), (snapshot) => {
-        const container = document.getElementById("pending-trades");
-        container.innerHTML = "";
-        const data = snapshot.val();
-        if (!data) return;
-
-        Object.keys(data).forEach(tradeId => {
-          const t = data[tradeId];
-          if (t.to === currentUserName && t.status === "pending") {
-            const div = document.createElement("div");
-            div.className = "trade-card";
-            div.innerHTML = `
-              <div><strong>${t.from}</strong> から ${t.amount} pt の受取リクエスト</div>
-              <input type="password" id="pass-${tradeId}" placeholder="共有された合言葉を入力" style="margin: 6px 0;">
-              <div style="display:flex; gap:5px;">
-                <button class="small" onclick="acceptTrade('${tradeId}')">承認して受取</button>
-                <button class="small danger" onclick="rejectTrade('${tradeId}')">拒否</button>
-              </div>
-            `;
-            container.appendChild(div);
-          }
-        });
-      });
-    }
-
-    // 取引承認処理
-    window.acceptTrade = async function(tradeId) {
-      const inputPass = document.getElementById(`pass-${tradeId}`).value.trim();
-      const tradeSnap = await get(ref(db, 'trades/' + tradeId));
-      const t = tradeSnap.val();
-
-      if (inputPass !== t.passcode) {
-        return alert("合言葉が違います");
-      }
-
-      const fromRef = ref(db, 'users/' + t.from);
-      const toRef = ref(db, 'users/' + t.to);
-
-      const fromSnap = await get(fromRef);
-      const toSnap = await get(toRef);
-
-      if ((fromSnap.val().points || 0) < t.amount) {
-        remove(ref(db, 'trades/' + tradeId));
-        return alert("送信元のポイントが不足しているためキャンセルされました");
-      }
-
-      await update(fromRef, { points: fromSnap.val().points - t.amount });
-      await update(toRef, { points: toSnap.val().points + t.amount });
-
-      await remove(ref(db, 'trades/' + tradeId));
-      addLog(`[送金完了] ${t.from} -> ${t.to} へ ${t.amount} pt 送信されました`);
-      alert("ポイントを受け取りました！");
+    window.gmChangePt = async function(uName, delta) {
+      const snap = await get(ref(db, 'users/' + uName));
+      const current = snap.val().points || 0;
+      await update(ref(db, 'users/' + uName), { points: current + delta });
+      addLog(`[GM操作] ${uName} のポイントを ${delta}pt 変更 (${current + delta}pt)`);
     };
 
-    // 取引拒否処理
-    window.rejectTrade = async function(tradeId) {
-      const tradeSnap = await get(ref(db, 'trades/' + tradeId));
-      const t = tradeSnap.val();
-      await remove(ref(db, 'trades/' + tradeId));
-      addLog(`[送金拒否] ${t.to} が ${t.from} からの ${t.amount} pt 送信を拒否しました`);
-      alert("リクエストを拒否しました");
+    window.gmGiveItem = async function(uName) {
+      const itemId = prompt(`付与/操作するアイテムIDを入力してください:\n(${Object.keys(ITEM_MASTER).join(", ")})`);
+      if (!ITEM_MASTER[itemId]) return alert("無効なアイテムIDです");
+      const countStr = prompt("変更する個数を入力してください（例: 1 で1個追加、-1 で1個没収）", "1");
+      const count = parseInt(countStr);
+      if (isNaN(count)) return;
+
+      const itemRef = ref(db, `users/${uName}/items/${itemId}`);
+      const snap = await get(itemRef);
+      const current = snap.val() || 0;
+      const next = current + count;
+
+      if (next <= 0) await remove(itemRef);
+      else await set(itemRef, next);
+
+      addLog(`[GMアイテム操作] ${uName} の『${ITEM_MASTER[itemId].name}』を ${count} 個変更しました`);
+      alert("更新しました");
     };
 
-    // ランキング ＆ セレクトボックス更新
-    const rankingQuery = query(ref(db, 'users'), orderByChild('points'));
-    onValue(rankingQuery, (snapshot) => {
-      const rankingList = document.getElementById("ranking-list");
-      const targetSelect = document.getElementById("transfer-target");
-
-      rankingList.innerHTML = "";
-      if (targetSelect) targetSelect.innerHTML = '<option value="">送信相手を選択</option>';
-
-      const users = [];
-      snapshot.forEach(child => {
-        const u = child.val();
-        if (u.name !== GM_NAME) users.push(u);
-      });
-
-      if (users.length === 0) {
-        rankingList.innerHTML = '<li style="color: var(--text-muted);">参加者がまだいません</li>';
-        return;
-      }
-
-      users.reverse();
-
-      users.forEach((user, index) => {
-        const li = document.createElement("li");
-        li.className = "ranking-item";
-        li.innerHTML = `
-          <span class="rank">${index + 1}位</span>
-          <span class="name">${user.name}</span>
-          <span class="score">${user.points} pt</span>
-        `;
-        rankingList.appendChild(li);
-
-        if (targetSelect && user.name !== currentUserName) {
-          const opt = document.createElement("option");
-          opt.value = user.name;
-          opt.textContent = user.name;
-          targetSelect.appendChild(opt);
+    window.gmDeleteUser = async function(uName) {
+      if (confirm(`本当に ${uName} を削除しますか？この操作は取り消せません。`)) {
+        if (confirm(`【最終確認】 ${uName} のアカウントおよび全データを削除します。`)) {
+          await remove(ref(db, 'users/' + uName));
+          addLog(`[GMアカウント削除] ${uName} がGMによって削除されました`);
+          alert("削除完了しました");
         }
-      });
-    });
+      }
+    };
   </script>
 </body>
 </html>
