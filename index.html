@@ -43,9 +43,10 @@
       margin-bottom: 14px;
     }
 
+    /* アナウンス枠を赤色ベースに変更 */
     .announce-box {
-      background: rgba(225, 29, 72, 0.15);
-      border: 1px solid var(--primary);
+      background: rgba(239, 68, 68, 0.15);
+      border: 1px solid var(--gm-color);
       border-radius: 8px;
       padding: 10px;
       margin-bottom: 12px;
@@ -63,7 +64,7 @@
       background: #11131c;
       border-top: 2px solid var(--card-border);
       display: flex;
-      justify-content: space-around;
+      justify-around: space-around;
       padding: 12px 0;
       z-index: 1000;
     }
@@ -174,10 +175,10 @@
   <!-- アプリメインコンテンツ -->
   <div id="app-content" class="hidden">
 
-    <!-- 全体アナウンスボード (常時表示) -->
+    <!-- 全体アナウンスボード (常時表示・文字色赤色) -->
     <div id="game-announce-card" class="announce-box">
-      <div style="font-weight:bold; color:var(--primary); font-size:0.85rem;" id="announce-status-title">【進行状況】未開催</div>
-      <div id="announce-body" style="font-size:0.9rem; margin-top:4px;">現在ゲームは行われていません</div>
+      <div style="font-weight:bold; color:var(--gm-color); font-size:0.85rem;" id="announce-status-title">【進行状況】未開催</div>
+      <div id="announce-body" style="font-size:0.9rem; margin-top:4px; color:var(--gm-color);">現在ゲームは行われていません</div>
     </div>
 
     <!-- 1. ダッシュボード タブ -->
@@ -267,8 +268,9 @@
     <div id="tab-gm" class="hidden">
 
       <div class="card">
-        <h2 class="gm-title">【GM】ゲームアナウンス管理 (オフライン進行用)</h2>
-        <input type="text" id="gm-game-header-input" placeholder="ヘッダー/ステータス (例: 【進行状況】第2ゲーム『サイコロ勝負』)">
+        <h2 class="gm-title">【GM】ゲームアナウンス管理</h2>
+        <input type="text" id="gm-game-header-input" placeholder="ヘッダー/見出し (例: 【進行状況】第1ゲーム開催中)" value="【進行状況】開催中">
+        <input type="text" id="gm-game-title-input" placeholder="ゲームタイトル (例: サバイバルバトル)">
         <textarea id="gm-announce-desc" placeholder="ルール・指示アナウンス文を入力..." rows="3"></textarea>
         <button id="gm-send-announce-btn" style="background-color:var(--gm-color);">全体アナウンスを更新＆通知</button>
       </div>
@@ -355,9 +357,9 @@
     const GM_NAME = "GM";
 
     const ITEM_MASTER = {
-      "attack_custom": { name: "アタック", type: "attack", defaultPower: 50, getDesc: (p) => `指定相手から最大 ${p ?? 50} pt 奪う（奪取成功でクールタイム発生）` },
-      "attack_drill": { name: "ドリルアタック", type: "attack_drill", defaultPower: 50, getDesc: (p) => `シールド・バリアを無視して最大 ${p ?? 50} pt 奪う（奪取成功でクールタイム発生）` },
-      "all_attack": { name: "一網打尽", type: "all_attack", defaultPower: 10, getDesc: (p) => `自分以外の参加者全員から各 ${p ?? 10} pt ずつ奪う（1pt以上奪取でクールタイム発生）` },
+      "attack_custom": { name: "アタック", type: "attack", defaultPower: 50, getDesc: (p) => `指定相手から最大 ${p ?? 50} pt 奪う` },
+      "attack_drill": { name: "ドリルアタック", type: "attack_drill", defaultPower: 50, getDesc: (p) => `シールド・バリアを無視して最大 ${p ?? 50} pt 奪う` },
+      "all_attack": { name: "一網打尽", type: "all_attack", defaultPower: 10, getDesc: (p) => `自分以外の参加者全員から各 ${p ?? 10} pt ずつ奪う` },
       "stealth": { name: "ステルス", type: "buff", getDesc: () => "次に使用する攻撃アイテムの発動者を「誰か」と隠蔽する" },
       "thief": { name: "泥棒", type: "thief", getDesc: () => "1/2の確率で指定した相手から所持アイテムを1つランダムで奪う" },
       "shield": { name: "シールド", type: "defense_single", getDesc: () => "指定対象1人からの攻撃を1回防いで消費される" },
@@ -428,7 +430,6 @@
       }
 
       initCommonListeners();
-      checkDateReset();
     }
 
     function initGMUI() {
@@ -452,18 +453,11 @@
       await set(notifRef, { title, body, time: timeStr });
     }
 
-    // GM用の全能アクションログ記録
     async function logGMActivity(actor, actionType, details) {
       const logRef = push(ref(db, 'gm_activity_logs'));
       const now = new Date();
       const timeStr = `${now.getHours()}:${String(now.getMinutes()).padStart(2, '0')}`;
-      await set(logRef, {
-        actor,
-        actionType,
-        details,
-        time: timeStr,
-        timestamp: Date.now()
-      });
+      await set(logRef, { actor, actionType, details, time: timeStr, timestamp: Date.now() });
     }
 
     function escapeHTML(str) {
@@ -474,7 +468,8 @@
 
     function getItemDisplayNameAndDesc(type, power, customName, customDesc) {
       if (customName) {
-        return { name: customName, desc: customDesc || "詳細なし" };
+        const descText = (customDesc !== undefined && customDesc !== null && customDesc !== "") ? customDesc : "説明なし";
+        return { name: customName, desc: descText };
       }
       const master = ITEM_MASTER[type] || { name: type, getDesc: () => "効果なし" };
       let name = master.name;
@@ -485,125 +480,8 @@
       return { name, desc };
     }
 
-    async function checkDateReset() {
-      const todayStr = new Date().toDateString();
-      const lastReset = localStorage.getItem("last_lock_reset_date");
-      if (lastReset !== todayStr) {
-        const userRef = ref(db, 'users/' + currentUserName);
-        const snap = await get(userRef);
-        if (snap.exists()) {
-          const u = snap.val();
-          if (u.itemLocked && (u.points || 0) >= 0) {
-            await update(userRef, { itemLocked: false });
-          }
-        }
-        localStorage.setItem("last_lock_reset_date", todayStr);
-      }
-    }
-
-    // アイテム使用関数
-    window.useItem = async function(itemKey) {
-      const userSnap = await get(ref(db, 'users/' + currentUserName));
-      if (!userSnap.exists()) return;
-      const user = userSnap.val();
-      const item = (user.items || {})[itemKey];
-      if (!item) return alert("指定のアイテムが見つかりません");
-
-      const isLocked = user.itemLocked || (user.points || 0) < 0;
-      if (isLocked) return alert("現在アイテムの使用が制限されています");
-
-      const masterType = ITEM_MASTER[item.type]?.type;
-
-      // クールタイムチェック
-      if (user.coolTime && ["attack", "attack_drill", "all_attack"].includes(masterType)) {
-        return alert("クールタイム中のため、攻撃系アイテムは使用できません");
-      }
-
-      // 1. 泥棒アイテム処理
-      if (masterType === "thief") {
-        const usersSnap = await get(ref(db, 'users'));
-        const allUsers = usersSnap.val() || {};
-        const targets = Object.keys(allUsers).filter(u => u !== currentUserName && u !== GM_NAME);
-        if (targets.length === 0) return alert("対象となるプレイヤーがいません");
-
-        const targetName = prompt("泥棒の対象プレイヤー名を入力してください:\n" + targets.join(", "));
-        if (!targetName || !targets.includes(targetName)) return alert("有効な対象を選択してください");
-
-        const targetUser = allUsers[targetName];
-        const targetItems = targetUser.items || {};
-        const targetItemKeys = Object.keys(targetItems);
-
-        // 成功判定 1/2
-        const isSuccess = Math.random() < 0.5;
-
-        // 使用した泥棒アイテムを削除
-        await remove(ref(db, `users/${currentUserName}/items/${itemKey}`));
-
-        let logDetail = "";
-        if (isSuccess && targetItemKeys.length > 0) {
-          const randomKey = targetItemKeys[Math.floor(Math.random() * targetItemKeys.length)];
-          const stolenItem = targetItems[randomKey];
-
-          // 相手からアイテム削除
-          await remove(ref(db, `users/${targetName}/items/${randomKey}`));
-          // 自分にアイテム付与
-          await push(ref(db, `users/${currentUserName}/items`), stolenItem);
-
-          const stolenInfo = getItemDisplayNameAndDesc(stolenItem.type, stolenItem.power, stolenItem.fakeName, stolenItem.fakeDesc);
-          alert(`泥棒成功！ ${targetName} から『${stolenInfo.name}』を奪いました！`);
-
-          sendNotification(currentUserName, "泥棒成功", `${targetName} から『${stolenInfo.name}』を奪いました`);
-          sendNotification(targetName, "アイテム盗難被害", `誰かにアイテムを1つ奪われました...`);
-          logDetail = `${targetName} から 『${stolenInfo.name}』 の奪取に成功`;
-        } else if (isSuccess && targetItemKeys.length === 0) {
-          alert(`泥棒を試みましたが、${targetName} はアイテムを所持していませんでした...（アイテムは消費されます）`);
-          logDetail = `${targetName} を対象に使用（成功判定だが相手の所持アイテム0）`;
-        } else {
-          alert(`泥棒失敗... 相手に気づかれずに奪うことができませんでした。`);
-          sendNotification(targetName, "泥棒未遂", `誰かがあなたからアイテムを奪おうと試みましたが失敗しました`);
-          logDetail = `${targetName} を対象に使用（失敗）`;
-        }
-
-        await logGMActivity(currentUserName, "泥棒使用", logDetail);
-        return;
-      }
-
-      // 2. 偽装キット処理
-      if (masterType === "fake") {
-        const currentItems = user.items || {};
-        const selectableKeys = Object.keys(currentItems).filter(k => k !== itemKey);
-        if (selectableKeys.length === 0) return alert("偽装対象となる他の持ちアイテムがありません");
-
-        const targetKey = prompt("偽装したい手持ちアイテムを選択してください:\n" + selectableKeys.map((k, idx) => `${idx + 1}: ${getItemDisplayNameAndDesc(currentItems[k].type, currentItems[k].power, currentItems[k].fakeName, currentItems[k].fakeDesc).name}`).join("\n"));
-        
-        const selectedIndex = parseInt(targetKey) - 1;
-        if (isNaN(selectedIndex) || selectedIndex < 0 || selectedIndex >= selectableKeys.length) return alert("有効な番号を選択してください");
-
-        const targetItemKey = selectableKeys[selectedIndex];
-        const newFakeName = prompt("新しいアイテム名を入力してください:");
-        if (!newFakeName) return alert("アイテム名は必須です");
-        const newFakeDesc = prompt("新しい効果説明を入力してください（空欄の場合は説明なし）:") || "";
-
-        // 偽装の適用
-        await update(ref(db, `users/${currentUserName}/items/${targetItemKey}`), {
-          fakeName: newFakeName,
-          fakeDesc: newFakeDesc
-        });
-
-        // 偽装キットの消費
-        await remove(ref(db, `users/${currentUserName}/items/${itemKey}`));
-
-        alert(`アイテムを『${newFakeName}』に偽装しました！`);
-        await logGMActivity(currentUserName, "偽装キット使用", `アイテムを『${newFakeName}』(説明:${newFakeDesc || "なし"}) に偽装`);
-        return;
-      }
-
-      // その他のアイテム共通・既存処理...
-      alert("アイテムを使用しました");
-    };
-
     function initCommonListeners() {
-      // ゲーム進行状態アナウンスのリアルタイム監視
+      // アナウンス監視
       onValue(ref(db, 'game_announcements'), (snapshot) => {
         const data = snapshot.val();
         const titleEl = document.getElementById("announce-status-title");
@@ -615,229 +493,37 @@
           return;
         }
 
-        titleEl.textContent = data.header || "【進行状況】";
+        titleEl.textContent = `${data.header || '【進行状況】'} ${data.title ? '- ' + data.title : ''}`;
         bodyEl.textContent = data.desc || "アナウンスなし";
       });
 
-      // GM用アナウンス送信
-      document.getElementById("gm-send-announce-btn")?.addEventListener("click", async () => {
-        const header = document.getElementById("gm-game-header-input").value.trim();
-        const desc = document.getElementById("gm-announce-desc").value.trim();
-        if (!header && !desc) return alert("アナウンス内容を入力してください");
-
-        await set(ref(db, 'game_announcements'), {
-          header: header || "【進行状況】",
-          desc: desc,
-          timestamp: Date.now()
-        });
-
-        // 全ユーザーへアナウンス通知
-        const usersSnap = await get(ref(db, 'users'));
-        const users = usersSnap.val() || {};
-        Object.keys(users).forEach(u => {
-          sendNotification(u, "ゲームアナウンス更新", `${header}\n${desc}`);
-        });
-
-        alert("全体アナウンスを更新しました");
-      });
-
-      // GM全能ログの監視（GMのみ表示）
-      if (currentUserName === GM_NAME) {
-        onValue(ref(db, 'gm_activity_logs'), (snapshot) => {
-          const container = document.getElementById("gm-activity-logs");
-          container.innerHTML = "";
-          const data = snapshot.val();
-          if (!data) {
-            container.innerHTML = '<div style="color:var(--text-muted);">アクティビティ履歴はありません</div>';
-            return;
-          }
-          const logs = Object.values(data).reverse();
-          logs.forEach(l => {
-            const div = document.createElement("div");
-            div.style.padding = "3px 0";
-            div.style.borderBottom = "1px solid #1a1d2d";
-            div.innerHTML = `<span style="color:var(--text-muted);">${l.time}</span> <strong style="color:var(--accent);">${escapeHTML(l.actor)}</strong>: [${l.actionType}] ${escapeHTML(l.details)}`;
-            container.appendChild(div);
-          });
-        });
-      }
-
-      onValue(ref(db, `notifications/${currentUserName}`), (snapshot) => {
-        const container = document.getElementById("user-notifications-list");
-        container.innerHTML = "";
-        const data = snapshot.val();
-        if (!data) {
-          container.innerHTML = '<div style="color:var(--text-muted);">お知らせはありません</div>';
-          return;
-        }
-        const notifs = Object.values(data).reverse();
-        notifs.forEach(n => {
-          const div = document.createElement("div");
-          div.className = "notification-item";
-          div.innerHTML = `<strong>${escapeHTML(n.title)}</strong><br>${escapeHTML(n.body)}<div class="notification-time">${n.time}</div>`;
-          container.appendChild(div);
-        });
-      });
-
+      // ユーザーデータ監視
       onValue(ref(db, 'users/' + currentUserName), (snapshot) => {
         const u = snapshot.val();
         if (!u) return;
-        const currentPoints = u.points || 0;
-        document.getElementById("my-points").textContent = currentPoints;
-        
-        const badgesContainer = document.getElementById("status-badges");
-        let hasBadge = false;
-
-        if (u.stealthActive) {
-          document.getElementById("stealth-badge").classList.remove("hidden");
-          hasBadge = true;
-        } else {
-          document.getElementById("stealth-badge").classList.add("hidden");
-        }
-
-        if (u.couponActive) {
-          document.getElementById("coupon-badge").classList.remove("hidden");
-          hasBadge = true;
-        } else {
-          document.getElementById("coupon-badge").classList.add("hidden");
-        }
-
-        const isLocked = u.itemLocked || currentPoints < 0;
-        if (isLocked) {
-          document.getElementById("lock-badge").classList.remove("hidden");
-          hasBadge = true;
-        } else {
-          document.getElementById("lock-badge").classList.add("hidden");
-        }
-
-        if (u.coolTime) {
-          document.getElementById("cool-badge").classList.remove("hidden");
-          hasBadge = true;
-        } else {
-          document.getElementById("cool-badge").classList.add("hidden");
-        }
-
-        const now = Date.now();
-        const cameraActive = u.cameraExpires && u.cameraExpires > now;
-        if (cameraActive) {
-          document.getElementById("camera-badge").classList.remove("hidden");
-          hasBadge = true;
-        } else {
-          document.getElementById("camera-badge").classList.add("hidden");
-        }
-
-        if (hasBadge) badgesContainer.classList.remove("hidden");
-        else badgesContainer.classList.add("hidden");
-
-        renderInventory(u.items || {}, isLocked, u.coolTime || false);
+        document.getElementById("my-points").textContent = u.points || 0;
+        renderInventory(u.items || {}, u.itemLocked || false, u.coolTime || false);
         renderTradeItemSelect(u.items || {});
       });
 
+      // プレイヤー選択リスト等の更新
       onValue(ref(db, 'users'), (snapshot) => {
         const data = snapshot.val();
         const tradeSelect = document.getElementById("trade-target");
         const dmSelect = document.getElementById("dm-target-select");
-        const gmPointSelect = document.getElementById("gm-point-target");
-        const gmGiveSelect = document.getElementById("gm-item-give-target");
-        const gmUserContainer = document.getElementById("gm-user-list-container");
-
         tradeSelect.innerHTML = '<option value="">相手を選択</option>';
         dmSelect.innerHTML = '<option value="">相手を選択してください</option>';
-        if (gmPointSelect) gmPointSelect.innerHTML = '<option value="">対象プレイヤーを選択</option>';
-        if (gmGiveSelect) gmGiveSelect.innerHTML = '<option value="">対象プレイヤーを選択</option>';
-        if (gmUserContainer) gmUserContainer.innerHTML = "";
 
         if (!data) return;
-
         Object.keys(data).forEach(uName => {
           if (uName !== currentUserName && uName !== GM_NAME) {
             const opt1 = document.createElement("option"); opt1.value = uName; opt1.textContent = uName;
             tradeSelect.appendChild(opt1);
-            const opt4 = document.createElement("option"); opt4.value = uName; opt4.textContent = uName;
-            dmSelect.appendChild(opt4);
-          }
-
-          if (uName !== GM_NAME) {
-            if (gmPointSelect) {
-              const opt = document.createElement("option"); opt.value = uName; opt.textContent = uName;
-              gmPointSelect.appendChild(opt);
-            }
-            if (gmGiveSelect) {
-              const opt = document.createElement("option"); opt.value = uName; opt.textContent = uName;
-              gmGiveSelect.appendChild(opt);
-            }
-
-            if (gmUserContainer && currentUserName === GM_NAME) {
-              const u = data[uName];
-              const itemsStr = Object.keys(u.items || {}).map(k => {
-                const it = u.items[k];
-                const info = getItemDisplayNameAndDesc(it.type, it.power, it.fakeName, it.fakeDesc);
-                return info.name;
-              }).join(", ") || "なし";
-
-              const div = document.createElement("div");
-              div.className = "item-box";
-              div.style.padding = "6px 10px";
-              div.innerHTML = `
-                <div style="display:flex; justify-content:space-between; align-items:center;">
-                  <div><strong>${escapeHTML(uName)}</strong> (${u.points || 0} pt)</div>
-                  <button class="small danger" onclick="gmDeleteUser('${uName}')">参加者削除</button>
-                </div>
-                <div style="font-size:0.75rem; color:var(--text-muted); margin-top:2px;">所持: ${escapeHTML(itemsStr)}</div>
-              `;
-              gmUserContainer.appendChild(div);
-            }
+            const opt2 = document.createElement("option"); opt2.value = uName; opt2.textContent = uName;
+            dmSelect.appendChild(opt2);
           }
         });
-
-        if (currentDMTarget) dmSelect.value = currentDMTarget;
       });
-
-      onValue(ref(db, `requests/${currentUserName}`), (snapshot) => {
-        const container = document.getElementById("pending-container");
-        container.innerHTML = "";
-        const data = snapshot.val();
-        if (!data) {
-          container.innerHTML = '<div style="color:var(--text-muted); font-size:0.85rem;">到着した申請はありません</div>';
-          return;
-        }
-
-        Object.keys(data).forEach(reqId => {
-          const req = data[reqId];
-          const div = document.createElement("div");
-          div.className = "item-box";
-          
-          const detail = req.tradeMode === "pt" ? `${req.amount} pt の譲渡` : `アイテム『${escapeHTML(req.itemName)}』の購入 (${req.price} pt)`;
-          div.innerHTML = `
-            <div><strong>[取引] ${escapeHTML(req.from)} からの提案</strong></div>
-            <div style="font-size:0.8rem;">${detail}</div>
-            <div style="display:flex; gap:6px; margin-top:6px;">
-              <button class="small" onclick="acceptTradeReq('${reqId}')">承認する</button>
-              <button class="small secondary" onclick="rejectReq('${reqId}')">拒絶</button>
-            </div>
-          `;
-          container.appendChild(div);
-        });
-      });
-
-      onValue(ref(db, 'chat'), (snapshot) => {
-        const box = document.getElementById("chat-box");
-        box.innerHTML = "";
-        const data = snapshot.val();
-        if (!data) return;
-
-        Object.values(data).forEach(msg => {
-          const div = document.createElement("div");
-          div.className = "chat-msg";
-          const userClass = msg.sender === GM_NAME ? "chat-gm" : "chat-user";
-          div.innerHTML = `<span class="${userClass}">${escapeHTML(msg.sender)}</span>: ${escapeHTML(msg.text)} <span class="chat-time">${msg.time}</span>`;
-          box.appendChild(div);
-        });
-        box.scrollTop = box.scrollHeight;
-      });
-
-      listenShop();
-      listenShopLogs();
     }
 
     function renderInventory(items, isLocked, isCool) {
@@ -853,7 +539,6 @@
       keys.forEach(itemKey => {
         const item = items[itemKey];
         const info = getItemDisplayNameAndDesc(item.type, item.power, item.fakeName, item.fakeDesc);
-        const masterType = ITEM_MASTER[item.type]?.type;
 
         const div = document.createElement("div");
         div.className = "item-box";
@@ -863,8 +548,6 @@
 
         if (isLocked) {
           html += `<span style="color:var(--gm-color); font-size:0.75rem;">使用不可</span>`;
-        } else if (isCool && ["attack", "attack_drill", "all_attack"].includes(masterType)) {
-          html += `<span style="color:var(--accent); font-size:0.75rem;">クールタイム中</span>`;
         } else {
           html += `<button class="small" onclick="useItem('${itemKey}')">使用</button>`;
         }
@@ -888,70 +571,122 @@
       });
     }
 
-    function listenShop() {
-      onValue(ref(db, 'shop'), (snapshot) => {
-        const container = document.getElementById("shop-inventory-list");
-        const gmDeleteContainer = document.getElementById("gm-shop-delete-list");
+    // アイテム使用処理
+    window.useItem = async function(itemKey) {
+      const meRef = ref(db, `users/${currentUserName}`);
+      const meSnap = await get(meRef);
+      if (!meSnap.exists()) return;
+      const me = meSnap.val();
+      const item = me.items ? me.items[itemKey] : null;
+      if (!item) return alert("アイテムが見つかりません");
 
-        container.innerHTML = "";
-        if (gmDeleteContainer) gmDeleteContainer.innerHTML = "";
+      const allUsersSnap = await get(ref(db, 'users'));
+      const allUsers = allUsersSnap.val() || {};
+      const targetList = Object.keys(allUsers).filter(u => u !== currentUserName && u !== GM_NAME);
 
-        const data = snapshot.val();
-        if (!data) {
-          container.innerHTML = '<div style="color:var(--text-muted); font-size:0.85rem;">ショップに入荷中のアイテムはありません</div>';
-          return;
+      // --- 泥棒アイテム ---
+      if (item.type === "thief") {
+        if (targetList.length === 0) return alert("対象となる他のプレイヤーがいません");
+        const targetUser = prompt(`泥棒アイテムを使用します。\n対象のプレイヤー名を入力してください:\n(${targetList.join(", ")})`);
+        if (!targetUser || !allUsers[targetUser]) return alert("指定されたプレイヤーが存在しません");
+
+        const targetRef = ref(db, `users/${targetUser}`);
+        const targetSnap = await get(targetRef);
+        const targetData = targetSnap.val();
+        const targetItems = targetData.items || {};
+        const targetItemKeys = Object.keys(targetItems);
+
+        // 1/2の確率判定
+        const isSuccess = Math.random() < 0.5;
+
+        if (isSuccess && targetItemKeys.length > 0) {
+          // 奪うアイテムをランダム決定
+          const randomKey = targetItemKeys[Math.floor(Math.random() * targetItemKeys.length)];
+          const stolenItem = targetItems[randomKey];
+
+          // 相手のアイテム削除
+          await remove(ref(db, `users/${targetUser}/items/${randomKey}`));
+
+          // 自分のインベントリに追加
+          const newItemRef = push(ref(db, `users/${currentUserName}/items`));
+          await set(newItemRef, stolenItem);
+
+          alert(`【成功】 ${targetUser} からアイテムを1つ盗み取りました！`);
+          await sendNotification(targetUser, "盗難発生", `誰かにアイテムを1つ盗まれました！`);
+          await logGMActivity(currentUserName, "アイテム使用", `泥棒成功: ${targetUser} からアイテムを奪いました`);
+        } else if (isSuccess && targetItemKeys.length === 0) {
+          alert(`【成功】 しかし、${targetUser} はアイテムを何も持っていませんでした...`);
+          await logGMActivity(currentUserName, "アイテム使用", `泥棒発動: ${targetUser} （所持アイテムなし）`);
+        } else {
+          alert(`【失敗】 泥棒に失敗しました...`);
+          await logGMActivity(currentUserName, "アイテム使用", `泥棒失敗: 対象 ${targetUser}`);
         }
 
-        Object.keys(data).forEach(shopId => {
-          const item = data[shopId];
-          const info = getItemDisplayNameAndDesc(item.type, item.power, item.fakeName, item.fakeDesc);
+        // 使用した泥棒アイテムの消費
+        await remove(ref(db, `users/${currentUserName}/items/${itemKey}`));
+        return;
+      }
 
-          const div = document.createElement("div");
-          div.className = "item-box";
-          div.innerHTML = `
-            <div style="display:flex; justify-content:space-between; align-items:center;">
-              <div><strong>${escapeHTML(info.name)}</strong></div>
-              <button class="small" onclick="buyShopItem('${shopId}')">${item.price} pt で購入</button>
-            </div>
-            <div style="font-size:0.75rem; color:var(--text-muted); margin-top:4px;">${escapeHTML(info.desc)}</div>
-          `;
-          container.appendChild(div);
+      // --- 偽装キット ---
+      if (item.type === "fake_item") {
+        const myItems = me.items || {};
+        const candidateKeys = Object.keys(myItems).filter(k => k !== itemKey);
+        if (candidateKeys.length === 0) return alert("偽装できる他の所持アイテムがありません");
 
-          if (gmDeleteContainer && currentUserName === GM_NAME) {
-            const gmDiv = document.createElement("div");
-            gmDiv.style.display = "flex";
-            gmDiv.style.justifyContent = "space-between";
-            gmDiv.style.alignItems = "center";
-            gmDiv.style.padding = "4px 0";
-            gmDiv.style.borderBottom = "1px solid var(--card-border)";
-            gmDiv.innerHTML = `
-              <span>${escapeHTML(info.name)} (${item.price}pt)</span>
-              <button class="small danger" onclick="gmDeleteShopItem('${shopId}')">削除</button>
-            `;
-            gmDeleteContainer.appendChild(gmDiv);
-          }
+        let targetItemKey = null;
+
+        // ID入力を不要にし、選択リストで選ばせる
+        let promptMsg = "偽装したいアイテムの番号を選択してください:\n";
+        candidateKeys.forEach((k, idx) => {
+          const info = getItemDisplayNameAndDesc(myItems[k].type, myItems[k].power, myItems[k].fakeName, myItems[k].fakeDesc);
+          promptMsg += `${idx + 1}: ${info.name}\n`;
         });
-      });
-    }
+        const selectedIndexStr = prompt(promptMsg);
+        if (!selectedIndexStr) return;
+        const selectedIndex = parseInt(selectedIndexStr, 10) - 1;
 
-    function listenShopLogs() {
-      onValue(ref(db, 'shop_logs'), (snapshot) => {
-        const container = document.getElementById("shop-history-list");
-        container.innerHTML = "";
-        const data = snapshot.val();
-        if (!data) {
-          container.innerHTML = '<div style="color:var(--text-muted); font-size:0.85rem;">購入履歴はありません</div>';
-          return;
+        if (isNaN(selectedIndex) || selectedIndex < 0 || selectedIndex >= candidateKeys.length) {
+          return alert("無効な選択です");
         }
-        const logs = Object.values(data).reverse();
-        logs.forEach(l => {
-          const div = document.createElement("div");
-          div.style.fontSize = "0.8rem";
-          div.style.padding = "4px 0";
-          div.style.borderBottom = "1px solid var(--card-border)";
-          div.innerHTML = `<span style="color:var(--text-muted);">${l.time}</span> <strong>${escapeHTML(l.buyer)}</strong> が『${escapeHTML(l.itemName)}』を購入 (${l.price}pt)`;
-          container.appendChild(div);
+        targetItemKey = candidateKeys[selectedIndex];
+
+        const newFakeName = prompt("偽装後の新しいアイテム名を入力してください:");
+        if (!newFakeName) return alert("名前は必須です");
+
+        const newFakeDesc = prompt("偽装後の説明文を入力してください（空欄の場合は『説明なし』となります）:");
+
+        // 偽装データの更新
+        await update(ref(db, `users/${currentUserName}/items/${targetItemKey}`), {
+          fakeName: newFakeName,
+          fakeDesc: newFakeDesc || ""
         });
+
+        // 偽装キットの消費
+        await remove(ref(db, `users/${currentUserName}/items/${itemKey}`));
+        alert("アイテムを偽装しました！");
+        await logGMActivity(currentUserName, "アイテム使用", `偽装キット使用 -> 新名称: ${newFakeName}`);
+        return;
+      }
+
+      alert("このアイテムの使用処理は定義されていません");
+    };
+
+    // GM: 全体アナウンス送信
+    const gmAnnounceBtn = document.getElementById("gm-send-announce-btn");
+    if (gmAnnounceBtn) {
+      gmAnnounceBtn.addEventListener("click", async () => {
+        const header = document.getElementById("gm-game-header-input").value.trim();
+        const title = document.getElementById("gm-game-title-input").value.trim();
+        const desc = document.getElementById("gm-announce-desc").value.trim();
+
+        await set(ref(db, 'game_announcements'), {
+          header: header || "【進行状況】",
+          title: title,
+          desc: desc,
+          updatedAt: Date.now()
+        });
+
+        alert("全体アナウンスを更新しました");
       });
     }
   </script>
